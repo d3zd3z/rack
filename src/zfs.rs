@@ -144,6 +144,7 @@ impl Zfs {
     /// Clone a single filesystem to an existing volume.  We assume there are no snapshots on the
     /// destination that aren't on the source (otherwise it isn't possible to do the clone).
     fn clone_one(&self, source: &Filesystem, dest: &Filesystem) -> Result<()> {
+        // TODO: Factor this better.
         if let Some(ssnap) = dest.snaps.last() {
             if !source.snaps.contains(ssnap) {
                 return Err("Last dest snapshot not present in source".into());
@@ -161,23 +162,42 @@ impl Zfs {
 
             println!("Clone from {}@{} to {}@{}", source.name, ssnap, dest.name, dsnap);
 
-            let size = self.estimate_size(&source.name, ssnap, dsnap)?;
+            let size = self.estimate_size(&source.name, Some(ssnap), dsnap)?;
             println!("Estimate: {}", humanize_size(size));
 
-            self.do_clone(&source.name, &dest.name, ssnap, dsnap, size)?;
+            self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
 
             Ok(())
         } else {
-            panic!("TODO: Clone to empty volume");
+            let dsnap = if let Some(dsnap) = source.snaps.last() {
+                dsnap
+            } else {
+                return Err("Source volume has no snapshots".into());
+            };
+
+            println!("Full clone from {}@{} to {}", source.name, dsnap, dest.name);
+
+            let size = self.estimate_size(&source.name, None, dsnap)?;
+            println!("Estimate: {}", humanize_size(size));
+
+            self.do_clone(&source.name, &dest.name, None, dsnap, size)?;
+
+            Ok(())
         }
     }
 
-    /// Use zfs send to estimate the size of this incremental backup.
-    fn estimate_size(&self, source: &str, ssnap: &str, dsnap: &str) -> Result<usize> {
-        let out = Command::new("zfs")
-            .args(&["send", "-nP", "-I", ssnap,
-                  &format!("{}@{}", source, dsnap)])
-            .output()?;
+    /// Use zfs send to estimate the size of this incremental backup.  If the source snap is none,
+    /// operate as a full clone.
+    fn estimate_size(&self, source: &str, ssnap: Option<&str>, dsnap: &str) -> Result<usize> {
+        let mut cmd = Command::new("zfs");
+        cmd.arg("send");
+        cmd.arg("-nP");
+        if let Some(ssnap) = ssnap {
+            cmd.arg("-I");
+            cmd.arg(&format!("@{}", ssnap));
+        }
+        cmd.arg(&format!("{}@{}", source, dsnap));
+        let out = cmd.output()?;
         if !out.status.success() {
             return Err(format!("zfs send error: {:?}", out.status).into());
         }
@@ -200,14 +220,17 @@ impl Zfs {
     }
 
     /// Perform the actual clone.
-    fn do_clone(&self, source: &str, dest: &str, ssnap: &str, dsnap: &str, size: usize) -> Result<()> {
+    fn do_clone(&self, source: &str, dest: &str, ssnap: Option<&str>, dsnap: &str, size: usize) -> Result<()> {
         // Construct a pipeline from zfs -> pv -> zfs.  PV is used to monitor the progress.
-        let mut sender = Command::new("zfs")
-            .args(&["send", "-I",
-                  &format!("@{}", ssnap),
-                  &format!("{}@{}", source, dsnap)])
-            .stdout(Stdio::piped())
-            .spawn()?;
+        let mut cmd = Command::new("zfs");
+        cmd.arg("send");
+        if let Some(ssnap) = ssnap {
+            cmd.arg("-I");
+            cmd.arg(&format!("@{}", ssnap));
+        }
+        cmd.arg(&format!("{}@{}", source, dsnap));
+        cmd.stdout(Stdio::piped());
+        let mut sender = cmd.spawn()?;
 
         let send_out = sender.stdout.as_ref().expect("Child output").as_raw_fd();
 
