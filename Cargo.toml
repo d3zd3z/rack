@@ -1,0 +1,15 @@
+[package]
+name = "rack"
+version = "0.1.0"
+authors = ["David Brown <david.brown@linaro.org>"]
+
+[lib]
+name = "rack"
+
+[dependencies]
+clap = "2.25"
+
+[[bin]]
+name = "rack"
+test = false
+doc = false
