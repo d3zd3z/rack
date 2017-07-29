@@ -40,3 +40,12 @@ pub fn snapshot() -> Result<()> {
     snap.take_snapshot("lint/ext4root", next)?;
     Ok(())
 }
+
+/// Clone one volume to another.
+pub fn clone(source: &str, dest: &str) -> Result<()> {
+    println!("Cloning {} to {}", source, dest);
+    let snap = Zfs::new("caz")?;
+    snap.clone(source, dest)?;
+
+    Ok(())
+}

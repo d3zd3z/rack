@@ -4,7 +4,8 @@ use chrono::{Datelike, Timelike, Local};
 use regex::{self, Regex};
 use Result;
 use std::io::{BufRead, BufReader};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::os::unix::io::{AsRawFd, FromRawFd};
 
 #[derive(Debug)]
 pub struct Zfs {
@@ -120,6 +121,127 @@ impl Zfs {
 
         Ok(())
     }
+
+    /// Clone one volume tree to another.
+    pub fn clone(&self, source: &str, dest: &str) -> Result<()> {
+        // Get filtered views of the source and destination filesystems under the given trees.
+        let source_fs = self.filtered(source)?;
+        let dest_fs = self.filtered(dest)?;
+
+        // For now, just handle the simple case of the destination existing, and there being no
+        // children filesystems.
+        if source_fs.len() == 1 && dest_fs.len() == 1 &&
+            source_fs[0].name == source && dest_fs[0].name == dest
+        {
+            self.clone_one(source_fs[0], dest_fs[0])?;
+        } else {
+            panic!("TODO: Complex clone");
+        }
+
+        Ok(())
+    }
+
+    /// Clone a single filesystem to an existing volume.  We assume there are no snapshots on the
+    /// destination that aren't on the source (otherwise it isn't possible to do the clone).
+    fn clone_one(&self, source: &Filesystem, dest: &Filesystem) -> Result<()> {
+        if let Some(ssnap) = dest.snaps.last() {
+            if !source.snaps.contains(ssnap) {
+                return Err("Last dest snapshot not present in source".into());
+            }
+            let dsnap = if let Some(dsnap) = source.snaps.last() {
+                dsnap
+            } else {
+                return Err("Source volume has no snapshots".into());
+            };
+
+            if dsnap == ssnap {
+                println!("Destination is up to date");
+                return Ok(())
+            }
+
+            println!("Clone from {}@{} to {}@{}", source.name, ssnap, dest.name, dsnap);
+
+            let size = self.estimate_size(&source.name, ssnap, dsnap)?;
+            println!("Estimate: {}", humanize_size(size));
+
+            self.do_clone(&source.name, &dest.name, ssnap, dsnap, size)?;
+
+            Ok(())
+        } else {
+            panic!("TODO: Clone to empty volume");
+        }
+    }
+
+    /// Use zfs send to estimate the size of this incremental backup.
+    fn estimate_size(&self, source: &str, ssnap: &str, dsnap: &str) -> Result<usize> {
+        let out = Command::new("zfs")
+            .args(&["send", "-nP", "-I", ssnap,
+                  &format!("{}@{}", source, dsnap)])
+            .output()?;
+        if !out.status.success() {
+            return Err(format!("zfs send error: {:?}", out.status).into());
+        }
+
+        let buf = out.stdout;
+        for line in BufReader::new(&buf[..]).lines() {
+            let line = line?;
+            let fields: Vec<_> = line.split('\t').collect();
+            if fields.len() < 2 {
+                return Err(format!("Invalid line from zfs send size estimate: {:?}", line).into());
+            }
+            if fields[0] != "size" {
+                continue;
+            }
+
+            return Ok(fields[1].parse().unwrap());
+        }
+
+        Ok(0)
+    }
+
+    /// Perform the actual clone.
+    fn do_clone(&self, source: &str, dest: &str, ssnap: &str, dsnap: &str, size: usize) -> Result<()> {
+        // Construct a pipeline from zfs -> pv -> zfs.  PV is used to monitor the progress.
+        let mut sender = Command::new("zfs")
+            .args(&["send", "-I",
+                  &format!("@{}", ssnap),
+                  &format!("{}@{}", source, dsnap)])
+            .stdout(Stdio::piped())
+            .spawn()?;
+
+        let send_out = sender.stdout.as_ref().expect("Child output").as_raw_fd();
+
+        // The unsafe is because using raw descriptors could make them available after they are
+        // closed.  These are being given to a spawn, which will be inherited by a fork, and is
+        // safe.
+        let mut pv = Command::new("pv")
+            .args(&["-s", &size.to_string()])
+            .stdin(unsafe {Stdio::from_raw_fd(send_out)})
+            .stdout(Stdio::piped())
+            .spawn()?;
+
+        let pv_out = pv.stdout.as_ref().expect("PV output").as_raw_fd();
+
+        let mut receiver = Command::new("zfs")
+            .args(&["receive", "-vFu", dest])
+            .stdin(unsafe {Stdio::from_raw_fd(pv_out)})
+            .spawn()?;
+
+        // pv -s <size>
+        // zfs receive -vFu <dest>
+
+        if !sender.wait()?.success() {
+            return Err(format!("zfs send error").into());
+        }
+        if !pv.wait()?.success() {
+            return Err(format!("pv error").into());
+        }
+        if !receiver.wait()?.success() {
+            return Err(format!("zfs receive error").into());
+        }
+
+        Ok(())
+    }
 }
 
 /// A `SnapBuilder` is used to build up the snapshot view of filesystems.
@@ -157,4 +279,29 @@ impl SnapBuilder {
         }
         set.snaps.push(snap.to_owned());
     }
+}
+
+/// Humanize sizes with base-2 SI-like prefixes.
+fn humanize_size(size: usize) -> String {
+    // This unit table covers at least 80 bits, so the later ones will never be used.
+    static UNITS: &'static [&'static str] = &[
+        "B  ", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB" ];
+
+    let mut value = size as f64;
+    let mut unit = 0;
+
+    while value > 1024.0 {
+        value /= 1024.0;
+        unit += 1;
+    }
+
+    let precision = if value < 10.0 {
+        3
+    } else if value < 100.0 {
+        2
+    } else {
+        2
+    };
+
+    format!("{:6.*}{}", precision, value, UNITS[unit])
 }
