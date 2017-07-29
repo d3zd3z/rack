@@ -143,47 +143,40 @@ impl Zfs {
 
     /// Clone a single filesystem to an existing volume.  We assume there are no snapshots on the
     /// destination that aren't on the source (otherwise it isn't possible to do the clone).
+    /// Handles the case when the destination is empty, and does a full clone.
     fn clone_one(&self, source: &Filesystem, dest: &Filesystem) -> Result<()> {
-        // TODO: Factor this better.
-        if let Some(ssnap) = dest.snaps.last() {
+        let ssnap = dest.snaps.last();
+
+        // There must be a destination snapshot, otherwise there is nothing to do.
+        let dsnap = if let Some(dsnap) = source.snaps.last() {
+            dsnap
+        } else {
+            return Err("Source volume has no snapshots".into());
+        };
+
+        if let Some(ssnap) = ssnap {
+            // If we have a source, make sure it is still present on the source volume (otherwise we
+            // don't have enough information to do a backup).
             if !source.snaps.contains(ssnap) {
                 return Err("Last dest snapshot not present in source".into());
             }
-            let dsnap = if let Some(dsnap) = source.snaps.last() {
-                dsnap
-            } else {
-                return Err("Source volume has no snapshots".into());
-            };
 
+            // If the source and dest snapshots are the same, there is no work to do.
             if dsnap == ssnap {
                 println!("Destination is up to date");
-                return Ok(())
+                return Ok(());
             }
-
-            println!("Clone from {}@{} to {}@{}", source.name, ssnap, dest.name, dsnap);
-
-            let size = self.estimate_size(&source.name, Some(ssnap), dsnap)?;
-            println!("Estimate: {}", humanize_size(size));
-
-            self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
-
-            Ok(())
-        } else {
-            let dsnap = if let Some(dsnap) = source.snaps.last() {
-                dsnap
-            } else {
-                return Err("Source volume has no snapshots".into());
-            };
-
-            println!("Full clone from {}@{} to {}", source.name, dsnap, dest.name);
-
-            let size = self.estimate_size(&source.name, None, dsnap)?;
-            println!("Estimate: {}", humanize_size(size));
-
-            self.do_clone(&source.name, &dest.name, None, dsnap, size)?;
-
-            Ok(())
         }
+
+        println!("Clone from {}@{} to {}@{}", source.name,
+                 ssnap.unwrap_or("NONE"), dest.name, dsnap);
+
+        let size = self.estimate_size(&source.name, ssnap, dsnap)?;
+        println!("Estimate: {}", humanize_size(size));
+
+        self.do_clone(&source.name, &dest.name, ssnap, dsnap, size)?;
+
+        Ok(())
     }
 
     /// Use zfs send to estimate the size of this incremental backup.  If the source snap is none,
