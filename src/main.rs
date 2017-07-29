@@ -21,5 +21,7 @@ fn main() {
         rack::sync_root().expect("sync root");
     } else if matches.subcommand_matches("snap").is_some() {
         rack::snapshot().expect("snapshot");
+    } else {
+        println!("Need to specify a command, try 'help'");
     }
 }
