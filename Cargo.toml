@@ -8,6 +8,10 @@ name = "rack"
 
 [dependencies]
 clap = "2.25"
+clippy = {version = "0.0.146", optional = true}
+
+[features]
+default = []
 
 [[bin]]
 name = "rack"

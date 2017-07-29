@@ -3,6 +3,9 @@
 //! Rack is a set of utilities written by David Brown to help him back up his computer.  It may or
 //! may not be useful to anyone else.
 
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+
 use std::error;
 use std::fs;
 use std::path::Path;
@@ -48,7 +51,7 @@ fn ensure_empty<P: AsRef<Path>>(name: P) -> Result<()> {
         return Err(format!("Root {:?} is not a directory", name).into());
     }
 
-    for entry in fs::read_dir(name)? {
+    if let Some(entry) = fs::read_dir(name)?.next() {
         return Err(format!("Root {:?} is not empty (has {:?})", name, entry?).into());
     }
 

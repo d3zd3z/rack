@@ -1,3 +1,6 @@
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+
 #[macro_use] extern crate clap;
 extern crate rack;
 
@@ -12,7 +15,7 @@ fn main() {
         )).get_matches();
     // println!("matches: {:?}", matches);
 
-    if let Some(_) = matches.subcommand_matches("sync") {
+    if matches.subcommand_matches("sync").is_some() {
         rack::sync_root().expect("sync root");
     }
 }
