@@ -144,7 +144,6 @@ impl Zfs {
     /// Clone a single filesystem to an existing volume.  We assume there are no snapshots on the
     /// destination that aren't on the source (otherwise it isn't possible to do the clone).
     fn clone_one(&self, source: &Filesystem, dest: &Filesystem) -> Result<()> {
-        // TODO: Factor this better.
         if let Some(ssnap) = dest.snaps.last() {
             if !source.snaps.contains(ssnap) {
                 return Err("Last dest snapshot not present in source".into());
@@ -169,7 +168,9 @@ impl Zfs {
 
             Ok(())
         } else {
-            let dsnap = if let Some(dsnap) = source.snaps.last() {
+            // When doing a full clone, clone from the first snapshot of the volume, and then do a
+            // differential backup from that snapshot.
+            let dsnap = if let Some(dsnap) = source.snaps.first() {
                 dsnap
             } else {
                 return Err("Source volume has no snapshots".into());
@@ -179,8 +180,15 @@ impl Zfs {
 
             let size = self.estimate_size(&source.name, None, dsnap)?;
             println!("Estimate: {}", humanize_size(size));
-
             self.do_clone(&source.name, &dest.name, None, dsnap, size)?;
+
+            // Run the clone on the rest of the image.
+            let ssnap = dsnap;
+            let dsnap = source.snaps.last().expect("source has first but no last");
+
+            let size = self.estimate_size(&source.name, Some(ssnap), dsnap)?;
+            println!("Estimate: {}", humanize_size(size));
+            self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
 
             Ok(())
         }
