@@ -10,6 +10,7 @@ fn main() {
         (version: "0.1")
         (author: "David Brown <davidb@davidb.org>")
         (about: "Snapshot based backups")
+        (@arg PREFIX: -p --prefix +takes_value "Set snapshot prefix")
         (@subcommand sync =>
          (about: "rsync root volume to zfs volume"))
         (@subcommand snap =>
@@ -19,12 +20,13 @@ fn main() {
          (@arg SOURCE: +required "Source zfs volume")
          (@arg DEST: +required "Destination zfs volume"))
         ).get_matches();
-    // println!("matches: {:?}", matches);
+
+    let prefix = matches.value_of("PREFIX").unwrap_or("caz");
 
     if matches.subcommand_matches("sync").is_some() {
         rack::sync_root().expect("sync root");
     } else if matches.subcommand_matches("snap").is_some() {
-        rack::snapshot().expect("snapshot");
+        rack::snapshot(prefix).expect("snapshot");
     } else if let Some(matches) = matches.subcommand_matches("clone") {
         let source = matches.value_of("SOURCE").unwrap();
         let dest = matches.value_of("DEST").unwrap();
