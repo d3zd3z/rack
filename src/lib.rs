@@ -49,3 +49,11 @@ pub fn clone(source: &str, dest: &str) -> Result<()> {
 
     Ok(())
 }
+
+/// Prune backups.  Expire old backups according to pruning rules.  If `really` is true, actually
+/// do the pruning, instead of just printing the names.
+pub fn prune(prefix: &str, filesystem: &str, really: bool) -> Result<()> {
+    let snap = Zfs::new(prefix)?;
+    snap.prune(filesystem, really)?;
+    Ok(())
+}

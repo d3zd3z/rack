@@ -19,6 +19,10 @@ fn main() {
          (about: "clone one volume tree to another")
          (@arg SOURCE: +required "Source zfs volume")
          (@arg DEST: +required "Destination zfs volume"))
+        (@subcommand prune =>
+         (about: "prune older snapshots")
+         (@arg REALLY: --really "Actually do the prune")
+         (@arg DEST: +required "Volume to prune"))
         ).get_matches();
 
     let prefix = matches.value_of("PREFIX").unwrap_or("caz");
@@ -31,6 +35,10 @@ fn main() {
         let source = matches.value_of("SOURCE").unwrap();
         let dest = matches.value_of("DEST").unwrap();
         rack::clone(source, dest).expect("clone");
+    } else if let Some(matches) = matches.subcommand_matches("prune") {
+        let dest = matches.value_of("DEST").unwrap();
+        let really = matches.is_present("REALLY");
+        rack::prune(prefix, dest, really).expect("prune");
     } else {
         println!("Need to specify a command, try 'help'");
     }

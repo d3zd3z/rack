@@ -3,6 +3,7 @@
 use chrono::{Datelike, Timelike, Local};
 use regex::{self, Regex};
 use Result;
+use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::os::unix::io::{AsRawFd, FromRawFd};
@@ -87,6 +88,14 @@ impl Zfs {
         }
 
         Ok(next)
+    }
+
+    /// Given a snapshot name, return the number of that snapshot, if it matches the pattern,
+    /// otherwise None.
+    fn snap_number(&self, text: &str) -> Option<usize> {
+        self.snap_re.captures(text).map(|caps| {
+            caps.get(1).unwrap().as_str().parse::<usize>().unwrap()
+        })
     }
 
     /// Return the filtered subset of the filesystems under a given prefix.  Collected into a
@@ -273,7 +282,70 @@ impl Zfs {
 
         Ok(())
     }
+
+    /// Prune old snapshots.  This is a Hanoi-type pruning model, where we keep the most recent
+    /// snapshot that has the same number of bits set in it.  In addition, we keep a certain number
+    /// `PRUNE_KEEP` of the most recent snapshots.
+    pub fn prune(&self, fs_name: &str, really: bool) -> Result<()> {
+        let fs = if let Some(fs) = self.filesystems.iter().find(|fs| fs.name == fs_name) {
+            fs
+        } else {
+            return Err(format!("Volume not found in zfs {:?}", fs_name).into());
+        };
+
+        // Get all of the snapshots, oldest first, that match this tag, and pair them up with
+        // the decoded number.
+        let mut snaps: Vec<_> = fs.snaps.iter().filter_map(|sn| {
+            self.snap_number(sn).map(|num| (sn, num))
+        }).collect();
+        snaps.reverse();
+
+        let mut pops = BTreeSet::<u32>::new();
+        let mut to_prune = vec![];
+
+        for item in snaps.iter().enumerate() {
+
+            // Don't prune the most recent ones.
+            let index = item.0;
+            if index < PRUNE_KEEP {
+                continue;
+            }
+
+            let name = (item.1).0;
+            let num = (item.1).1;
+
+            let bit_count = num.count_ones();
+            if pops.contains(&bit_count) {
+                let prune_name = format!("{}@{}", fs_name, name);
+
+                to_prune.push(prune_name);
+
+            }
+            pops.insert(bit_count);
+        }
+
+        /// Now do the actual pruning, starting with the oldest ones.
+        to_prune.reverse();
+
+        for prune_name in &to_prune {
+            println!("{}prune: {}", if really { "" } else { "would " }, prune_name);
+            if really {
+                let status = Command::new("zfs")
+                    .arg("destroy")
+                    .arg(&prune_name)
+                    .status()?;
+                if !status.success() {
+                    return Err(format!("Error with zfs destroy: {:?}", status).into());
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
+
+/// The number of recent ones to keep.
+const PRUNE_KEEP: usize = 10;
 
 /// A `SnapBuilder` is used to build up the snapshot view of filesystems.
 struct SnapBuilder {
