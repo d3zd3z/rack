@@ -2,6 +2,13 @@
 name = "rack"
 version = "0.1.0"
 authors = ["David Brown <david.brown@linaro.org>"]
+license = "MIT"
+readme = "README.md"
+keywords = ["system", "backup", "zfs"]
+categories = ["filesystem", "command-line-utilities"]
+description = "Utilities for various snapshot and cloning operations in ZFS"
+repository = "https://github.com/d3zd3z/rack"
+publish = false
 
 [lib]
 name = "rack"
