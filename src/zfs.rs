@@ -3,7 +3,7 @@
 use chrono::{Datelike, Timelike, Local};
 use regex::{self, Regex};
 use Result;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::os::unix::io::{AsRawFd, FromRawFd};
@@ -137,14 +137,33 @@ impl Zfs {
         let source_fs = self.filtered(source)?;
         let dest_fs = self.filtered(dest)?;
 
-        // For now, just handle the simple case of the destination existing, and there being no
-        // children filesystems.
-        if source_fs.len() == 1 && dest_fs.len() == 1 &&
-            source_fs[0].name == source && dest_fs[0].name == dest
-        {
-            self.clone_one(source_fs[0], dest_fs[0])?;
-        } else {
-            panic!("TODO: Complex clone");
+        // Make a mapping between the suffixes of the names (including the empty string for one
+        // that exactly matches `dest`.  This should be safe as long as `.filtered()` above
+        // always returns ones with this string as a prefix.
+        let dest_map: HashMap<&str, &Filesystem> = dest_fs
+            .iter().map(|&d| (&d.name[dest.len()..], d)).collect();
+
+        for src in &source_fs {
+            match dest_map.get(&src.name[source.len()..]) {
+                Some(d) => {
+                    println!("Clone existing: {:?} to {:?}", src.name, d.name);
+                    self.clone_one(src, d)?;
+                }
+                None => {
+                    println!("Clone fresh: {:?} {:?}+{:?}",
+                             src.name, dest, &src.name[source.len()..]);
+
+                    // Construct the new volume.
+                    let destfs = Filesystem {
+                        name: format!("{}{}", dest, &src.name[source.len()..]),
+                        snaps: vec![],
+                        mount: "*INVALID*".into(),
+                    };
+
+                    self.make_volume(src, &destfs)?;
+                    self.clone_one(src, &destfs)?;
+                }
+            }
         }
 
         Ok(())
@@ -338,6 +357,54 @@ impl Zfs {
                     return Err(format!("Error with zfs destroy: {:?}", status).into());
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    /// Construct a new volume at "dest".  Copies over certain attributes (acltype, xattr, atime,
+    /// relatime) that are relevant to the snapshot being correct.
+    fn make_volume(&self, src: &Filesystem, dest: &Filesystem) -> Result<()> {
+        // Read the attributes from the source volume.
+        let out = Command::new("zfs")
+            .args(&["get", "-Hp", "all", &src.name])
+            .output()?;
+        if !out.status.success() {
+            return Err(format!("Unable to run zfs get: {:?}", out.status).into());
+        }
+        let buf = out.stdout;
+        let mut props = vec![];
+        for line in BufReader::new(&buf[..]).lines() {
+            let line = line?;
+            let fields: Vec<_> = line.split('\t').collect();
+            if fields.len() != 4 {
+                return Err(format!("zfs get line doesn't have 4 fields: {:?}", line).into());
+            }
+            // 0 - name
+            // 1 - property
+            // 2 - value
+            // 3 - source
+
+            // We care about "local" or "received" properties, which are ones that will be set to a
+            // value not present.  But, don't include the 'mountpoint' property, so that the backup
+            // won't have things randomly mounted.
+            if fields[1] == "mountpoint" {
+                continue;
+            }
+            if fields[3] == "local" || fields[3] == "received" {
+                props.push("-o".into());
+                props.push(format!("{}={}", fields[1], fields[2]));
+            }
+        }
+        println!("   props: {:?}", props);
+
+        let status = Command::new("zfs")
+            .arg("create")
+            .args(&props)
+            .arg(&dest.name)
+            .status()?;
+        if !status.success() {
+            return Err(format!("Unable to run zfs create: {:?}", status).into());
         }
 
         Ok(())
