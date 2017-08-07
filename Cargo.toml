@@ -18,6 +18,8 @@ chrono = "0.4"
 clap = "2.25"
 clippy = {version = "0.0.146", optional = true}
 regex = "0.2.2"
+rsure = { path = "../../wd/rsure" }
+error-chain = "0.10"
 
 [features]
 default = []

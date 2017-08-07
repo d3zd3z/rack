@@ -23,6 +23,10 @@ fn main() {
          (about: "prune older snapshots")
          (@arg REALLY: --really "Actually do the prune")
          (@arg DEST: +required "Volume to prune"))
+        (@subcommand sure =>
+         (about: "Update rsure data")
+         (@arg FS: --fs "ZFS filesystem name")
+         (@arg FILE: --file "Weave file for rsure data"))
         ).get_matches();
 
     let prefix = matches.value_of("PREFIX").unwrap_or("caz");
@@ -39,6 +43,14 @@ fn main() {
         let dest = matches.value_of("DEST").unwrap();
         let really = matches.is_present("REALLY");
         rack::prune(prefix, dest, really).expect("prune");
+    } else if let Some(matches) = matches.subcommand_matches("sure") {
+        let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
+        let file = matches.value_of("FILE")
+            .map(|x| x.to_string())
+            .unwrap_or_else(|| format!("/lint/sure/ext4root-{}.weave.gz", prefix));
+
+        println!("Sure update of {:?} to {:?}", fs, file);
+        rack::sure(prefix, fs, &file).expect("sure");
     } else {
         println!("Need to specify a command, try 'help'");
     }

@@ -10,18 +10,35 @@
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
 extern crate chrono;
+#[macro_use] extern crate error_chain;
 extern crate regex;
+extern crate rsure;
 
-use std::error;
-use std::result;
+use regex::Regex;
+use std::collections::HashSet;
+use std::io;
+use std::path::Path;
 
 mod sync;
 mod zfs;
 
 use zfs::Zfs;
 
-/// Our local result type, for now, just box the errors up.
-pub type Result<T> = result::Result<T, Box<error::Error + Send + Sync>>;
+/// Local error type.
+error_chain! {
+    types {
+        Error, ErrorKind, ChainErr, Result;
+    }
+
+    links {
+        Rsure(rsure::Error, rsure::ErrorKind);
+    }
+
+    foreign_links {
+        Io(io::Error);
+        Regex(regex::Error);
+    }
+}
 
 /// The path where root will be temporarily bind mounted.
 static ROOT_BIND_DIR: &'static str = "/mnt/root";
@@ -55,5 +72,58 @@ pub fn clone(source: &str, dest: &str) -> Result<()> {
 pub fn prune(prefix: &str, filesystem: &str, really: bool) -> Result<()> {
     let snap = Zfs::new(prefix)?;
     snap.prune(filesystem, really)?;
+    Ok(())
+}
+
+/// Update sure data for existing snapshots.
+pub fn sure(prefix: &str, filesystem: &str, surefile: &str) -> Result<()> {
+    let snap = Zfs::new(prefix)?;
+
+    // A regex to filter snapshots matching the desired prefix.
+    let quoted = regex::escape(prefix);
+    let pat = format!(r"^{}\d{{4}}-[-\d]+$", quoted);
+    let re = Regex::new(&pat)?;
+
+    // Find the filesystem that matches
+    let fs = if let Some(fs) = snap.filesystems.iter().find(|&fs| fs.name == filesystem) {
+        fs
+    } else {
+        return Err("No snapshots match".into());
+    };
+
+    let snaps: Vec<_> = fs.snaps.iter().filter(|x| re.is_match(x)).collect();
+
+    // println!("Snaps: {:?}", snaps);
+    // println!("Mountpoint: {:?}", fs.mount);
+
+    let store = rsure::parse_store(surefile)?;
+    let versions = store.get_versions()?;
+
+    let versions: Vec<_> = versions.iter().filter(|x| re.is_match(&x.name)).collect();
+    let verset: HashSet<&String> = versions.iter().map(|x| &x.name).collect();
+
+    // println!("Sure versions: {:?}", versions.iter().map(|x| &x.name).collect::<Vec<_>>());
+
+    // Go through the snapshots, in order, showing any that haven't been rsured.  If ones in the
+    // middle are not present, we should really base off of those, but in the normal case, this
+    // will always just add ones at the end.
+    for vers in &snaps {
+        if verset.contains(vers) {
+            continue;
+        }
+
+        println!("Capture: {:?}", vers);
+
+        // Zfs snapshots seem to not mount until something inside is read.  It seems sufficient to
+        // stat "." in the root (but no the root directory itself).
+        let base = Path::new(&fs.mount).join(".zfs").join("snapshot").join(vers);
+        let dotfile = base.join(".");
+        let _ = dotfile.metadata()?;
+        println!("Stat {:?} for {:?}", dotfile, base);
+        let mut tags = rsure::StoreTags::new();
+        tags.insert("name".into(), vers.to_string());
+        rsure::update(base, &*store, true, &tags)?;
+    }
+
     Ok(())
 }
