@@ -49,12 +49,12 @@ static ROOT_DEST: &'static str = "/lint/ext4root";
 pub use sync::sync_root;
 
 /// Make a snapshot of some useful volumes.
-pub fn snapshot(prefix: &str) -> Result<()> {
+pub fn snapshot(prefix: &str, filesystem: &str) -> Result<()> {
     let snap = Zfs::new(prefix)?;
     // println!("snap: {:?}", snap);
-    let next = snap.next_under("lint/ext4root")?;
+    let next = snap.next_under(filesystem)?;
     println!("next: {}: {}", next, snap.snap_name(next));
-    snap.take_snapshot("lint/ext4root", next)?;
+    snap.take_snapshot(filesystem, next)?;
     Ok(())
 }
 
