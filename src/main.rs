@@ -28,6 +28,8 @@ fn main() {
          (about: "Update rsure data")
          (@arg FS: --fs "ZFS filesystem name")
          (@arg FILE: --file "Weave file for rsure data"))
+        (@subcommand borg =>
+         (about: "Generate borg backups"))
         ).get_matches();
 
     let prefix = matches.value_of("PREFIX").unwrap_or("caz");
@@ -53,6 +55,8 @@ fn main() {
 
         println!("Sure update of {:?} to {:?}", fs, file);
         rack::sure(prefix, fs, &file).expect("sure");
+    } else if let Some(_) = matches.subcommand_matches("borg") {
+        rack::run_borg("lint/ext4root", "/lint/borgs/linaro").unwrap();
     } else {
         println!("Need to specify a command, try 'help'");
     }

@@ -19,6 +19,7 @@ use std::collections::HashSet;
 use std::io;
 use std::path::Path;
 
+mod borg;
 mod sync;
 mod zfs;
 
@@ -124,6 +125,21 @@ pub fn sure(prefix: &str, filesystem: &str, surefile: &str) -> Result<()> {
         tags.insert("name".into(), vers.to_string());
         rsure::update(base, &*store, true, &tags)?;
     }
+
+    Ok(())
+}
+
+pub fn run_borg(filesystem: &str, borg_repo: &str) -> Result<()> {
+    let snap = Zfs::new(filesystem)?;
+
+    let fs = if let Some(fs) = snap.filesystems.iter().find(|&fs| fs.name == filesystem) {
+        fs
+    } else {
+        return Err("No snapshots match".into());
+    };
+
+    // Just get the snapshots matching this single prefix.
+    borg::run(fs, borg_repo).unwrap();
 
     Ok(())
 }

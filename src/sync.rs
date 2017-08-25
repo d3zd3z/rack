@@ -14,7 +14,6 @@ use ROOT_DEST;
 /// having ZFS on root.  To back that up, we bind mount it to a tmp area, rsync that, and then
 /// remove the bind mount.
 pub fn sync_root() -> Result<()> {
-    ensure_empty(ROOT_BIND_DIR)?;
     let _root = MountedDir::new("/", Path::new(ROOT_BIND_DIR))?;
 
     let status = Command::new("rsync")
@@ -46,10 +45,11 @@ fn ensure_empty<P: AsRef<Path>>(name: P) -> Result<()> {
 }
 
 // Bind mount a directory, making sure to unmount it when this value goes out of scope.
-struct MountedDir<'a>(&'a Path);
+pub struct MountedDir<'a>(&'a Path);
 
 impl<'a> MountedDir<'a> {
-    fn new<P1: AsRef<Path>>(from: P1, to: &'a Path) -> Result<MountedDir<'a>> {
+    pub fn new<P1: AsRef<Path>>(from: P1, to: &'a Path) -> Result<MountedDir<'a>> {
+        ensure_empty(to)?;
         let from = from.as_ref();
         let status = Command::new("mount")
             .arg("--bind")
