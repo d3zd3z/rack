@@ -44,9 +44,6 @@ error_chain! {
 /// The path where root will be temporarily bind mounted.
 static ROOT_BIND_DIR: &'static str = "/mnt/root";
 
-/// The volume where root will be mirrored.
-static ROOT_DEST: &'static str = "/lint/ext4root";
-
 pub use sync::sync_root;
 
 /// Make a snapshot of some useful volumes.

@@ -12,7 +12,8 @@ fn main() {
         (about: "Snapshot based backups")
         (@arg PREFIX: -p --prefix +takes_value "Set snapshot prefix")
         (@subcommand sync =>
-         (about: "rsync root volume to zfs volume"))
+         (about: "rsync root volume to zfs volume")
+         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4root)"))
         (@subcommand snap =>
          (about: "take a current snapshot of concerned volumes")
          (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4root)"))
@@ -34,8 +35,9 @@ fn main() {
 
     let prefix = matches.value_of("PREFIX").unwrap_or("caz");
 
-    if matches.subcommand_matches("sync").is_some() {
-        rack::sync_root().expect("sync root");
+    if let Some(matches) = matches.subcommand_matches("sync") {
+        let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
+        rack::sync_root(fs).expect("sync root");
     } else if let Some(matches) = matches.subcommand_matches("snap") {
         let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
         rack::snapshot(prefix, fs).expect("snapshot");

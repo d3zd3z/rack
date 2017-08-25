@@ -6,14 +6,13 @@ use std::process::Command;
 
 use Result;
 use ROOT_BIND_DIR;
-use ROOT_DEST;
 
 /// Sync the root filesystem to a volume on ZFS.
 ///
 /// The root filesystem on my system lives on ext4, mostly because of the added complexity of
 /// having ZFS on root.  To back that up, we bind mount it to a tmp area, rsync that, and then
 /// remove the bind mount.
-pub fn sync_root() -> Result<()> {
+pub fn sync_root(root_fs: &str) -> Result<()> {
     let _root = MountedDir::new("/", Path::new(ROOT_BIND_DIR))?;
 
     let status = Command::new("rsync")
@@ -21,7 +20,7 @@ pub fn sync_root() -> Result<()> {
         .arg("-aiHAX")
         .arg("--delete")
         .arg(&format!("{}/.", ROOT_BIND_DIR))
-        .arg(&format!("{}/.", ROOT_DEST))
+        .arg(&format!("/{}/.", root_fs))
         .status()?;
     if !status.success() {
         return Err(format!("Error running rsync: {:?}", status).into());
