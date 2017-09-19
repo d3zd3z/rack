@@ -61,7 +61,7 @@ impl Filesystem {
         println!("Backing up {:?} to {:?}", dest, archive);
 
         let status = Command::new("borg")
-            .args(&["create", "-p", &archive, "/mnt/root"])
+            .args(&["create", "-p", "--exclude-caches", &archive, "/mnt/root"])
             .status()?;
         if !status.success() {
             return Err(format!("Error running borg: {:?}", status).into());
