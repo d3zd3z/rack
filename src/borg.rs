@@ -26,7 +26,7 @@ pub fn run(fs: &Filesystem, borg_repo: &str) -> Result<()> {
     }
 
     println!("Borg: {} snapshots to backup",
-             fs.snaps.iter().filter(|x| present.contains(&x[..])).count());
+             fs.snaps.iter().filter(|x| !present.contains(&x[..])).count());
 
     // Go through all of the snapshots, in order, and back up ones that are missing.
     for snap in &fs.snaps {
