@@ -39,12 +39,9 @@ impl Zfs {
         // mountpoints (which will include all snapshots).  Order of the volumes seems to mostly be
         // lexicographically, at least in some kind of tree order.  The snapshots come out in the
         // order they were created.
-        let mut cmd = Command::new("zfs");
-        cmd.args(&["list", "-H", "-t", "all", "-o", "name,mountpoint"]);
-        let out = cmd.output()?;
-        if !out.status.success() {
-            return Err(format!("zfs list returned error: {:?}", out.status).into());
-        }
+        let out = Command::new("zfs")
+            .args(&["list", "-H", "-t", "all", "-o", "name,mountpoint"])
+            .checked_output()?;
         let buf = out.stdout;
 
         let mut builder = SnapBuilder::new();
@@ -231,10 +228,7 @@ impl Zfs {
             cmd.arg(&format!("@{}", ssnap));
         }
         cmd.arg(&format!("{}@{}", source, dsnap));
-        let out = cmd.output()?;
-        if !out.status.success() {
-            return Err(format!("zfs send error: {:?}", out.status).into());
-        }
+        let out = cmd.checked_output()?;
 
         let buf = out.stdout;
         for line in BufReader::new(&buf[..]).lines() {
@@ -363,10 +357,7 @@ impl Zfs {
         // Read the attributes from the source volume.
         let out = Command::new("zfs")
             .args(&["get", "-Hp", "all", &src.name])
-            .output()?;
-        if !out.status.success() {
-            return Err(format!("Unable to run zfs get: {:?}", out.status).into());
-        }
+            .checked_output()?;
         let buf = out.stdout;
         let mut props = vec![];
         for line in BufReader::new(&buf[..]).lines() {

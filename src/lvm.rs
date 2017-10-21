@@ -18,13 +18,10 @@ pub struct Lvm {
 impl Lvm {
     /// Scan the system for LVM partitions releated to the specified one.
     pub fn scan(vg: &str, lv: &str) -> Result<Lvm> {
-        let mut cmd = Command::new("lvs");
-        cmd.args(&["--nameprefixes", "--noheadings", "--all", "--units", "b", "--nosuffix"]);
-        cmd.stderr(Stdio::inherit());
-        let out = cmd.output()?;
-        if !out.status.success() {
-            return Err(format!("lvs returned error: {:?}", out.status).into());
-        }
+        let out = Command::new("lvs")
+            .args(&["--nameprefixes", "--noheadings", "--all", "--units", "b", "--nosuffix"])
+            .stderr(Stdio::inherit())
+            .checked_output()?;
         let buf = out.stdout;
 
         let mut main = None;
