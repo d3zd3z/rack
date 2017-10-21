@@ -19,6 +19,7 @@ use std::collections::HashSet;
 use std::io;
 use std::path::Path;
 
+mod checked;
 mod borg;
 mod lvm;
 mod sync;

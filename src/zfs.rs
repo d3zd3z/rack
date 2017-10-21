@@ -2,11 +2,13 @@
 
 use chrono::{Datelike, Timelike, Local};
 use regex::{self, Regex};
-use Result;
 use std::collections::{BTreeSet, HashMap};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::os::unix::io::{AsRawFd, FromRawFd};
+
+use Result;
+use checked::CheckedExt;
 
 #[derive(Debug)]
 pub struct Zfs {
@@ -121,13 +123,9 @@ impl Zfs {
     pub fn take_snapshot(&self, fs: &str, index: usize) -> Result<()> {
         let name = format!("{}@{}", fs, self.snap_name(index));
         println!("Make snapshot: {}", name);
-        let mut cmd = Command::new("zfs");
-        cmd.args(&["snapshot", "-r", &name]);
-        let status = cmd.status()?;
-        if !status.success() {
-            return Err(format!("Unable to run zfs command: {:?}", status).into());
-        }
-
+        Command::new("zfs")
+            .args(&["snapshot", "-r", &name])
+            .checked_run()?;
         Ok(())
     }
 
@@ -349,13 +347,10 @@ impl Zfs {
         for prune_name in &to_prune {
             println!("{}prune: {}", if really { "" } else { "would " }, prune_name);
             if really {
-                let status = Command::new("zfs")
+                Command::new("zfs")
                     .arg("destroy")
                     .arg(&prune_name)
-                    .status()?;
-                if !status.success() {
-                    return Err(format!("Error with zfs destroy: {:?}", status).into());
-                }
+                    .checked_run()?;
             }
         }
 
@@ -398,14 +393,11 @@ impl Zfs {
         }
         println!("   props: {:?}", props);
 
-        let status = Command::new("zfs")
+        Command::new("zfs")
             .arg("create")
             .args(&props)
             .arg(&dest.name)
-            .status()?;
-        if !status.success() {
-            return Err(format!("Unable to run zfs create: {:?}", status).into());
-        }
+            .checked_run()?;
 
         Ok(())
     }

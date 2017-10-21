@@ -6,6 +6,7 @@ use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 
 use Result;
+use checked::CheckedExt;
 
 #[derive(Debug)]
 pub struct Lvm {
@@ -90,12 +91,9 @@ impl Lvm {
     /// Create a new lvm snapshot of the given name.
     pub fn create_snapshot(&mut self, name: &str) -> Result<()> {
         let origin = format!("{}/{}", self.vg, self.lv);
-        let mut cmd = Command::new("lvcreate");
-        cmd.args(&["-s", "-n", name, &origin]);
-        let status = cmd.status()?;
-        if !status.success() {
-            return Err(format!("Unable to run lvcreate: {:?}", status).into());
-        }
+        Command::new("lvcreate")
+            .args(&["-s", "-n", name, &origin])
+            .checked_run()?;
 
         // Add this snapshot to our list.
         self.snaps.push(name.to_string());
@@ -160,12 +158,9 @@ impl SnapMount {
         let lvm_name = format!("{}/{}", lvm.vg, name);
 
         // Activate the lv
-        let mut cmd = Command::new("lvchange");
-        cmd.args(&["-ay", "-K", &lvm_name]);
-        let status = cmd.status()?;
-        if !status.success() {
-            return Err(format!("Unable to run lvchange: {:?}", status).into());
-        }
+        Command::new("lvchange")
+            .args(&["-ay", "-K", &lvm_name])
+            .checked_run()?;
 
         // At this point, we have something to undo, so create our struct.
         let mut me = SnapMount {
@@ -176,20 +171,14 @@ impl SnapMount {
 
         let devname = format!("/dev/{}", me.lvm_name);
         // Run fsck.
-        let mut cmd = Command::new("fsck");
-        cmd.args(&["-p", &devname]);
-        let status = cmd.status()?;
-        if !status.success() {
-            return Err(format!("Unable to fsck filesystem: {:?}", status).into());
-        }
+        Command::new("fsck")
+            .args(&["-p", &devname])
+            .checked_run()?;
 
         // Mount the filesystem.
-        let mut cmd = Command::new("mount");
-        cmd.args(&["-r", &devname, &me.mountpoint]);
-        let status = cmd.status()?;
-        if !status.success() {
-            return Err(format!("Unable to mount filesystem: {:?}", status).into());
-        }
+        Command::new("mount")
+            .args(&["-r", &devname, &me.mountpoint])
+            .checked_run()?;
         me.mounted = true;
 
         Ok(me)
@@ -199,23 +188,22 @@ impl SnapMount {
 impl Drop for SnapMount {
     fn drop(&mut self) {
         if self.mounted {
-            let mut cmd = Command::new("umount");
-            cmd.args(&[&self.mountpoint]);
-            match cmd.status() {
-                Err(e) => eprintln!("Error running umount: {:?}", e),
-                Ok(st) if st.success() => (),
-                Ok(st) => eprintln!("Unable to umount: {:?}", st),
+            let st = Command::new("umount")
+                .args(&[&self.mountpoint])
+                .checked_run();
+            match st {
+                Err(e) => eprintln!("Error umounting: {:?}", e),
+                Ok(()) => (),
             }
         }
 
         // Deactivate the volume.
-        let mut cmd = Command::new("lvchange");
-        cmd.args(&["-an", "-K", &self.lvm_name]);
-        let status = cmd.status();
-        match status {
+        let st = Command::new("lvchange")
+            .args(&["-an", "-K", &self.lvm_name])
+            .checked_run();
+        match st {
             Err(e) => eprintln!("Error running lvchange: {:?}", e),
-            Ok(st) if st.success() => (),
-            Ok(st) => eprintln!("Unable to lvchange to deactivate: {:?}", st),
+            Ok(()) => (),
         }
     }
 }
