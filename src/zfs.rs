@@ -41,6 +41,7 @@ impl Zfs {
         // order they were created.
         let out = Command::new("zfs")
             .args(&["list", "-H", "-t", "all", "-o", "name,mountpoint"])
+            .stderr(Stdio::inherit())
             .checked_output()?;
         let buf = out.stdout;
 
@@ -228,6 +229,7 @@ impl Zfs {
             cmd.arg(&format!("@{}", ssnap));
         }
         cmd.arg(&format!("{}@{}", source, dsnap));
+        cmd.stderr(Stdio::inherit());
         let out = cmd.checked_output()?;
 
         let buf = out.stdout;
@@ -357,6 +359,7 @@ impl Zfs {
         // Read the attributes from the source volume.
         let out = Command::new("zfs")
             .args(&["get", "-Hp", "all", &src.name])
+            .stderr(Stdio::inherit())
             .checked_output()?;
         let buf = out.stdout;
         let mut props = vec![];
