@@ -20,6 +20,7 @@ use std::io;
 use std::path::Path;
 
 mod borg;
+mod lvm;
 mod sync;
 mod zfs;
 

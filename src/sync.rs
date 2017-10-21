@@ -4,16 +4,21 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+use lvm::Lvm;
 use Result;
 use ROOT_BIND_DIR;
 
 /// Sync the root filesystem to a volume on ZFS.
 ///
 /// The root filesystem on my system lives on ext4, mostly because of the added complexity of
-/// having ZFS on root.  To back that up, we bind mount it to a tmp area, rsync that, and then
-/// remove the bind mount.
+/// having ZFS on root.  This used to just bind mount, but now that root is on lvm, we can make a
+/// proper snapshot.
 pub fn sync_root(root_fs: &str) -> Result<()> {
-    let _root = MountedDir::new("/", Path::new(ROOT_BIND_DIR))?;
+    let mut lvols = Lvm::scan("ubuntu-vg", "root")?;
+    let snap = lvols.new_name();
+    lvols.create_snapshot(&snap)?;
+
+    let _root = lvols.mount_snapshot(&snap, ROOT_BIND_DIR)?;
 
     let status = Command::new("rsync")
         // .arg("-n")
