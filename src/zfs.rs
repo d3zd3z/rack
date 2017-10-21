@@ -343,7 +343,7 @@ impl Zfs {
             pops.insert(bit_count);
         }
 
-        /// Now do the actual pruning, starting with the oldest ones.
+        // Now do the actual pruning, starting with the oldest ones.
         to_prune.reverse();
 
         for prune_name in &to_prune {
