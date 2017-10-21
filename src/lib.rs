@@ -18,6 +18,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::io;
 use std::path::Path;
+use std::process::ExitStatus;
 
 mod checked;
 mod borg;
@@ -40,6 +41,13 @@ error_chain! {
     foreign_links {
         Io(io::Error);
         Regex(regex::Error);
+    }
+
+    errors {
+        Command(command: String, status: ExitStatus) {
+            description("error running command")
+            display("error running command: {:?} ({})", status, command)
+        }
     }
 }
 

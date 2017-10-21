@@ -1,7 +1,7 @@
 //! An extension to Command to allow checked runs.
 
 use std::process::Command;
-use Result;
+use {ErrorKind, Result};
 
 pub trait CheckedExt {
     /// Run the given command, normalizing to the local Result type, and returning a local error if
@@ -13,7 +13,7 @@ impl CheckedExt for Command {
     fn checked_run(&mut self) -> Result<()> {
         let status = self.status()?;
         if !status.success() {
-            return Err(format!("Unable to run command {:?}, {:?}", self, status).into());
+            return Err(ErrorKind::Command(format!("{:?}", self), status).into());
         }
         Ok(())
     }
