@@ -14,6 +14,9 @@ fn main() {
         (@subcommand sync =>
          (about: "rsync root volume to zfs volume")
          (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4root)"))
+        (@subcommand hsync =>
+         (about: "rsync home volume to zfs volume")
+         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4home)"))
         (@subcommand snap =>
          (about: "take a current snapshot of concerned volumes")
          (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4root)"))
@@ -32,7 +35,8 @@ fn main() {
         (@subcommand borg =>
          (about: "Generate borg backups")
          (@arg FS: --fs +takes_value "ZFS filesystem name")
-         (@arg REPO: --repo +takes_value "Borg repo path"))
+         (@arg REPO: --repo +takes_value "Borg repo path")
+         (@arg NAME: --name +takes_value "Borg backup name prefix"))
         ).get_matches();
 
     let prefix = matches.value_of("PREFIX").unwrap_or("caz");
@@ -40,6 +44,9 @@ fn main() {
     if let Some(matches) = matches.subcommand_matches("sync") {
         let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
         rack::sync_root(fs).expect("sync root");
+    } else if let Some(matches) = matches.subcommand_matches("hsync") {
+        let fs = matches.value_of("FS").unwrap_or("lint/ext4home");
+        rack::sync_home(fs).expect("sync home");
     } else if let Some(matches) = matches.subcommand_matches("snap") {
         let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
         rack::snapshot(prefix, fs).expect("snapshot");
@@ -62,7 +69,8 @@ fn main() {
     } else if let Some(matches) = matches.subcommand_matches("borg") {
         let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
         let repo = matches.value_of("REPO").unwrap_or("/lint/borgs/linaro");
-        rack::run_borg(fs, repo).unwrap();
+        let name = matches.value_of("NAME").unwrap_or("root-");
+        rack::run_borg(fs, repo, name).unwrap();
     } else {
         println!("Need to specify a command, try 'help'");
     }

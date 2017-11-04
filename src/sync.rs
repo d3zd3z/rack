@@ -7,6 +7,7 @@ use std::process::Command;
 use lvm::Lvm;
 use Result;
 use ROOT_BIND_DIR;
+use HOME_BIND_DIR;
 
 /// Sync the root filesystem to a volume on ZFS.
 ///
@@ -26,6 +27,28 @@ pub fn sync_root(root_fs: &str) -> Result<()> {
         .arg("--delete")
         .arg(&format!("{}/.", ROOT_BIND_DIR))
         .arg(&format!("/{}/.", root_fs))
+        .status()?;
+    if !status.success() {
+        return Err(format!("Error running rsync: {:?}", status).into());
+    }
+    Ok(())
+}
+
+/// Sync the home filesystem to a volume on ZFS.
+///
+/// The home filesystem also lives on ext4, with a lvm thinvol snapshot.
+pub fn sync_home(home_fs: &str) -> Result<()> {
+    let mut lvols = Lvm::scan("ubuntu-vg", "home")?;
+    let snap = lvols.new_name();
+    lvols.create_snapshot(&snap)?;
+
+    let _home = lvols.mount_snapshot(&snap, HOME_BIND_DIR)?;
+
+    let status = Command::new("rsync")
+        .arg("-aiHAX")
+        .arg("--delete")
+        .arg(&format!("{}/.", HOME_BIND_DIR))
+        .arg(&format!("/{}/.", home_fs))
         .status()?;
     if !status.success() {
         return Err(format!("Error running rsync: {:?}", status).into());

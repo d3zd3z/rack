@@ -54,7 +54,10 @@ error_chain! {
 /// The path where root will be temporarily bind mounted.
 static ROOT_BIND_DIR: &'static str = "/mnt/root";
 
-pub use sync::sync_root;
+/// The path where home will be temporarily mounted.
+static HOME_BIND_DIR: &'static str = "/mnt/home";
+
+pub use sync::{sync_home, sync_root};
 
 /// Make a snapshot of some useful volumes.
 pub fn snapshot(prefix: &str, filesystem: &str) -> Result<()> {
@@ -136,7 +139,7 @@ pub fn sure(prefix: &str, filesystem: &str, surefile: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn run_borg(filesystem: &str, borg_repo: &str) -> Result<()> {
+pub fn run_borg(filesystem: &str, borg_repo: &str, name: &str) -> Result<()> {
     let snap = Zfs::new(filesystem)?;
 
     let fs = if let Some(fs) = snap.filesystems.iter().find(|&fs| fs.name == filesystem) {
@@ -146,7 +149,7 @@ pub fn run_borg(filesystem: &str, borg_repo: &str) -> Result<()> {
     };
 
     // Just get the snapshots matching this single prefix.
-    borg::run(fs, borg_repo).unwrap();
+    borg::run(fs, borg_repo, name).unwrap();
 
     Ok(())
 }

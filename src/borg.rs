@@ -10,7 +10,7 @@ use std::path::Path;
 use std::process::Command;
 use zfs::Filesystem;
 
-pub fn run(fs: &Filesystem, borg_repo: &str) -> Result<()> {
+pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
     let out = Command::new("borg")
         .args(&["list", "--short", borg_repo])
         .output()?;
@@ -30,18 +30,19 @@ pub fn run(fs: &Filesystem, borg_repo: &str) -> Result<()> {
 
     // Go through all of the snapshots, in order, and back up ones that are missing.
     for snap in &fs.snaps {
-        if present.contains(snap) {
+        let snapname = format!("{}{}", name, snap);
+        if present.contains(&snapname) {
             continue;
         }
 
-        fs.borg_backup(borg_repo, snap)?;
+        fs.borg_backup(borg_repo, snap, name)?;
     }
 
     Ok(())
 }
 
 impl Filesystem {
-    fn borg_backup(&self, borg_repo: &str, snap: &str) -> Result<()> {
+    fn borg_backup(&self, borg_repo: &str, snap: &str, name: &str) -> Result<()> {
         let dest = format!("{}/.zfs/snapshot/{}", self.mount, snap);
 
         // Stat "." in this directory to request ZFS automount the snapshot.
@@ -55,7 +56,7 @@ impl Filesystem {
         let srcdir = Path::new("/mnt/root");
         let _root = MountedDir::new(&dest, &srcdir)?;
 
-        let archive = format!("{}::{}", borg_repo, snap);
+        let archive = format!("{}::{}{}", borg_repo, name, snap);
 
         // Run the backup itself.
         println!("Backing up {:?} to {:?}", dest, archive);
