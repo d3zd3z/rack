@@ -123,6 +123,7 @@ impl Zfs {
         println!("Make snapshot: {}", name);
         Command::new("zfs")
             .args(&["snapshot", "-r", &name])
+            .stderr(Stdio::inherit())
             .checked_run()?;
         Ok(())
     }
@@ -259,6 +260,7 @@ impl Zfs {
             cmd.arg(&format!("@{}", ssnap));
         }
         cmd.arg(&format!("{}@{}", source, dsnap));
+        cmd.stderr(Stdio::inherit());
         cmd.stdout(Stdio::piped());
         let mut sender = cmd.spawn()?;
 
@@ -271,6 +273,7 @@ impl Zfs {
             .args(&["-s", &size.to_string()])
             .stdin(unsafe {Stdio::from_raw_fd(send_out)})
             .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
             .spawn()?;
 
         let pv_out = pv.stdout.as_ref().expect("PV output").as_raw_fd();
@@ -278,6 +281,7 @@ impl Zfs {
         let mut receiver = Command::new("zfs")
             .args(&["receive", "-vFu", dest])
             .stdin(unsafe {Stdio::from_raw_fd(pv_out)})
+            .stderr(Stdio::inherit())
             .spawn()?;
 
         // pv -s <size>
@@ -346,6 +350,7 @@ impl Zfs {
                 Command::new("zfs")
                     .arg("destroy")
                     .arg(&prune_name)
+                    .stderr(Stdio::inherit())
                     .checked_run()?;
             }
         }
@@ -391,6 +396,7 @@ impl Zfs {
             .arg("create")
             .args(&props)
             .arg(&dest.name)
+            .stderr(Stdio::inherit())
             .checked_run()?;
 
         Ok(())

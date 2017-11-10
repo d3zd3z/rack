@@ -7,12 +7,13 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use zfs::Filesystem;
 
 pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
     let out = Command::new("borg")
         .args(&["list", "--short", borg_repo])
+        .stderr(Stdio::inherit())
         .output()?;
     if !out.status.success() {
         return Err(format!("Unable to run borg: {:?}", out.status).into());
@@ -63,6 +64,7 @@ impl Filesystem {
 
         let status = Command::new("borg")
             .args(&["create", "-p", "--exclude-caches", &archive, "/mnt/root"])
+            .stderr(Stdio::inherit())
             .status()?;
         if !status.success() {
             return Err(format!("Error running borg: {:?}", status).into());
