@@ -15,7 +15,7 @@ use HOME_BIND_DIR;
 /// having ZFS on root.  This used to just bind mount, but now that root is on lvm, we can make a
 /// proper snapshot.
 pub fn sync_root(root_fs: &str) -> Result<()> {
-    let mut lvols = Lvm::scan("ubuntu-vg", "root")?;
+    let mut lvols = Lvm::scan("ubuntu-vg", "gentooroot")?;
     let snap = lvols.new_name();
     lvols.create_snapshot(&snap)?;
 

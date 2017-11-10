@@ -13,13 +13,13 @@ fn main() {
         (@arg PREFIX: -p --prefix +takes_value "Set snapshot prefix")
         (@subcommand sync =>
          (about: "rsync root volume to zfs volume")
-         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4root)"))
+         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4gentoo)"))
         (@subcommand hsync =>
          (about: "rsync home volume to zfs volume")
          (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4home)"))
         (@subcommand snap =>
          (about: "take a current snapshot of concerned volumes")
-         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4root)"))
+         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4gentoo)"))
         (@subcommand clone =>
          (about: "clone one volume tree to another")
          (@arg SOURCE: +required "Source zfs volume")
@@ -42,13 +42,13 @@ fn main() {
     let prefix = matches.value_of("PREFIX").unwrap_or("caz");
 
     if let Some(matches) = matches.subcommand_matches("sync") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
+        let fs = matches.value_of("FS").unwrap_or("lint/ext4gentoo");
         rack::sync_root(fs).expect("sync root");
     } else if let Some(matches) = matches.subcommand_matches("hsync") {
         let fs = matches.value_of("FS").unwrap_or("lint/ext4home");
         rack::sync_home(fs).expect("sync home");
     } else if let Some(matches) = matches.subcommand_matches("snap") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
+        let fs = matches.value_of("FS").unwrap_or("lint/ext4gentoo");
         rack::snapshot(prefix, fs).expect("snapshot");
     } else if let Some(matches) = matches.subcommand_matches("clone") {
         let source = matches.value_of("SOURCE").unwrap();
@@ -59,17 +59,17 @@ fn main() {
         let really = matches.is_present("REALLY");
         rack::prune(prefix, dest, really).expect("prune");
     } else if let Some(matches) = matches.subcommand_matches("sure") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
+        let fs = matches.value_of("FS").unwrap_or("lint/ext4gentoo");
         let file = matches.value_of("FILE")
             .map(|x| x.to_string())
-            .unwrap_or_else(|| format!("/lint/sure/ext4root-{}.weave.gz", prefix));
+            .unwrap_or_else(|| format!("/lint/sure/ext4gentoo-{}.weave.gz", prefix));
 
         println!("Sure update of {:?} to {:?}", fs, file);
         rack::sure(prefix, fs, &file).expect("sure");
     } else if let Some(matches) = matches.subcommand_matches("borg") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4root");
+        let fs = matches.value_of("FS").unwrap_or("lint/ext4gentoo");
         let repo = matches.value_of("REPO").unwrap_or("/lint/borgs/linaro");
-        let name = matches.value_of("NAME").unwrap_or("root-");
+        let name = matches.value_of("NAME").unwrap_or("gentoo-");
         rack::run_borg(fs, repo, name).unwrap();
     } else {
         println!("Need to specify a command, try 'help'");
