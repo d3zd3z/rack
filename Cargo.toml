@@ -1,30 +1,42 @@
 [package]
-name = "rack"
-version = "0.1.0"
 authors = ["David Brown <david.brown@linaro.org>"]
-license = "MIT"
-readme = "README.md"
-keywords = ["system", "backup", "zfs"]
-categories = ["filesystem", "command-line-utilities"]
+categories = [
+    "filesystem",
+    "command-line-utilities",
+]
 description = "Utilities for various snapshot and cloning operations in ZFS"
-repository = "https://github.com/d3zd3z/rack"
-publish = false
-
-[lib]
+keywords = [
+    "system",
+    "backup",
+    "zfs",
+]
+license = "MIT"
 name = "rack"
+publish = false
+readme = "README.md"
+repository = "https://github.com/d3zd3z/rack"
+version = "0.1.0"
+
+[[bin]]
+doc = false
+name = "rack"
+test = false
 
 [dependencies]
 chrono = "0.4"
 clap = "2.25"
-clippy = {version = "0.0.146", optional = true}
-regex = "0.2.2"
-rsure = { path = "../../wd/rsure" }
 error-chain = "0.11"
+regex = "0.2.2"
+
+[dependencies.clippy]
+optional = true
+version = "0.0.146"
+
+[dependencies.rsure]
+path = "../../wd/rsure"
 
 [features]
 default = []
 
-[[bin]]
+[lib]
 name = "rack"
-test = false
-doc = false

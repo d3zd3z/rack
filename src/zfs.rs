@@ -128,8 +128,11 @@ impl Zfs {
         Ok(())
     }
 
-    /// Clone one volume tree to another.
-    pub fn clone(&self, source: &str, dest: &str) -> Result<()> {
+    /// Clone one volume tree to another.  Perform should be set to true to
+    /// actually do the clones, otherwise it just prints what it would do.
+    pub fn clone(&self, source: &str, dest: &str, perform: bool, excludes: &[&str]) -> Result<()> {
+        let excludes = Exclusions::new(excludes)?;
+
         // Get filtered views of the source and destination filesystems under the given trees.
         let source_fs = self.filtered(source)?;
         let dest_fs = self.filtered(dest)?;
@@ -141,10 +144,17 @@ impl Zfs {
             .iter().map(|&d| (&d.name[dest.len()..], d)).collect();
 
         for src in &source_fs {
+            if excludes.is_excluded(&src.name) {
+                // println!("Skip: {:?}", src.name);
+                continue;
+            }
+
             match dest_map.get(&src.name[source.len()..]) {
                 Some(d) => {
                     println!("Clone existing: {:?} to {:?}", src.name, d.name);
-                    self.clone_one(src, d)?;
+                    if perform {
+                        self.clone_one(src, d)?;
+                    }
                 }
                 None => {
                     println!("Clone fresh: {:?} {:?}+{:?}",
@@ -157,8 +167,10 @@ impl Zfs {
                         mount: "*INVALID*".into(),
                     };
 
-                    self.make_volume(src, &destfs)?;
-                    self.clone_one(src, &destfs)?;
+                    if perform {
+                        self.make_volume(src, &destfs)?;
+                        self.clone_one(src, &destfs)?;
+                    }
                 }
             }
         }
@@ -211,9 +223,11 @@ impl Zfs {
             let ssnap = dsnap;
             let dsnap = source.snaps.last().expect("source has first but no last");
 
-            let size = self.estimate_size(&source.name, Some(ssnap), dsnap)?;
-            println!("Estimate: {}", humanize_size(size));
-            self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
+            // If there are more snapshots to make, clone the rest.
+            if ssnap != dsnap {
+                let size = self.estimate_size(&source.name, Some(ssnap), dsnap)?;
+                self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
+            }
 
             Ok(())
         }
@@ -440,6 +454,33 @@ impl SnapBuilder {
             panic!("Got snapshot from zfs without same volume name");
         }
         set.snaps.push(snap.to_owned());
+    }
+}
+
+// Exclusions are a set of regular expressions matched against source
+// filesystem names.  If any match, then that particular backup is skipped.
+// Note that this can cause problems if children are backed up and the
+// parents are not.  This won't automatically create the parent on the
+// destination.
+struct Exclusions(Vec<Regex>);
+
+impl Exclusions {
+    fn new(excludes: &[&str]) -> Result<Exclusions> {
+        // TODO: Figure out how to do this with collect.
+        let mut result = vec![];
+        for s in excludes {
+            result.push(Regex::new(s)?);
+        }
+        Ok(Exclusions(result))
+    }
+
+    fn is_excluded(&self, text: &str) -> bool {
+        for re in &self.0 {
+            if re.is_match(text) {
+                return true;
+            }
+        }
+        false
     }
 }
 

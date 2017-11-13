@@ -70,10 +70,10 @@ pub fn snapshot(prefix: &str, filesystem: &str) -> Result<()> {
 }
 
 /// Clone one volume to another.
-pub fn clone(source: &str, dest: &str) -> Result<()> {
+pub fn clone(source: &str, dest: &str, perform: bool, excludes: &[&str]) -> Result<()> {
     println!("Cloning {} to {}", source, dest);
     let snap = Zfs::new("caz")?;
-    snap.clone(source, dest)?;
+    snap.clone(source, dest, perform, excludes)?;
 
     Ok(())
 }

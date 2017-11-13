@@ -22,6 +22,8 @@ fn main() {
          (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4gentoo)"))
         (@subcommand clone =>
          (about: "clone one volume tree to another")
+         (@arg EXCLUDE: --exclude -e ... +takes_value "Tree to exclude (source based)")
+         (@arg PRETEND: --pretend -n "Don't actually do the clone, but show what would be done")
          (@arg SOURCE: +required "Source zfs volume")
          (@arg DEST: +required "Destination zfs volume"))
         (@subcommand prune =>
@@ -53,7 +55,9 @@ fn main() {
     } else if let Some(matches) = matches.subcommand_matches("clone") {
         let source = matches.value_of("SOURCE").unwrap();
         let dest = matches.value_of("DEST").unwrap();
-        rack::clone(source, dest).expect("clone");
+        let pretend = matches.is_present("PRETEND");
+        let excludes: Vec<_> = matches.values_of("EXCLUDE").unwrap().collect();
+        rack::clone(source, dest, !pretend, &excludes).expect("clone");
     } else if let Some(matches) = matches.subcommand_matches("prune") {
         let dest = matches.value_of("DEST").unwrap();
         let really = matches.is_present("REALLY");
