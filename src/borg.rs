@@ -54,8 +54,12 @@ impl Filesystem {
 
         // Bind mount to have consistent path for borg.  This needs to be specific to the given
         // filesystem.
-        let srcdir = Path::new("/mnt/root");
-        let _root = MountedDir::new(&dest, &srcdir)?;
+        let srcdir = match name {
+            "gentoo-" => "/mnt/root",
+            "home-" => "/mnt/home",
+            name => return Err(format!("Unsupported borg backup name: {:?}", name).into()),
+        };
+        let _root = MountedDir::new(&dest, Path::new(&srcdir))?;
 
         let archive = format!("{}::{}{}", borg_repo, name, snap);
 
@@ -63,7 +67,7 @@ impl Filesystem {
         println!("Backing up {:?} to {:?}", dest, archive);
 
         let status = Command::new("borg")
-            .args(&["create", "-p", "--exclude-caches", &archive, "/mnt/root"])
+            .args(&["create", "-p", "--exclude-caches", &archive, &srcdir])
             .stderr(Stdio::inherit())
             .status()?;
         if !status.success() {
