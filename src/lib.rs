@@ -48,6 +48,10 @@ error_chain! {
             description("error running command")
             display("error running command: {:?} ({})", status, command)
         }
+        NotMounted(fs: String) {
+            description("ZFS volume is not mounted")
+            display("ZFS volume is not mounted: {:?}", fs)
+        }
     }
 }
 
@@ -124,10 +128,14 @@ pub fn sure(prefix: &str, filesystem: &str, surefile: &str) -> Result<()> {
         }
 
         println!("Capture: {:?}", vers);
+        // Although ZFS tells us where it thinks things should be mounted,
+        // it isn't always right, instead find out where Linux view the
+        // mounpoints.
+        let mount = snap.find_mount(&fs.name)?;
 
         // Zfs snapshots seem to not mount until something inside is read.  It seems sufficient to
         // stat "." in the root (but no the root directory itself).
-        let base = Path::new(&fs.mount).join(".zfs").join("snapshot").join(vers);
+        let base = Path::new(&mount).join(".zfs").join("snapshot").join(vers);
         let dotfile = base.join(".");
         let _ = dotfile.metadata()?;
         println!("Stat {:?} for {:?}", dotfile, base);

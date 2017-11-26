@@ -3,11 +3,12 @@
 use chrono::{Datelike, Timelike, Local};
 use regex::{self, Regex};
 use std::collections::{BTreeSet, HashMap};
+use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::os::unix::io::{AsRawFd, FromRawFd};
 
-use Result;
+use {ErrorKind, Result};
 use checked::CheckedExt;
 
 #[derive(Debug)]
@@ -415,6 +416,28 @@ impl Zfs {
 
         Ok(())
     }
+
+    pub fn find_mount(&self, name: &str) -> Result<String> {
+        find_mount(name)
+    }
+}
+
+/// Find where a volume is mounted.  Since Linux can mount ZFS volumes
+/// at non-standard locations (specifically for root), use the system's
+/// mount table, instead of ZFS.  This also will correctly return an
+/// error if the volume is not mounted.
+pub fn find_mount(name: &str) -> Result<String> {
+    for line in BufReader::new(File::open("/proc/mounts")?).lines() {
+        let line = line?;
+        let fields: Vec<_> = line.split(' ').collect();
+        if fields.len() < 3 || fields[2] != "zfs" {
+            continue;
+        }
+        if fields[0] == name {
+            return Ok(fields[1].to_owned())
+        }
+    }
+    return Err(ErrorKind::NotMounted(name.to_owned()).into());
 }
 
 /// The number of recent ones to keep.

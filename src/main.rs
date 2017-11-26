@@ -56,7 +56,10 @@ fn main() {
         let source = matches.value_of("SOURCE").unwrap();
         let dest = matches.value_of("DEST").unwrap();
         let pretend = matches.is_present("PRETEND");
-        let excludes: Vec<_> = matches.values_of("EXCLUDE").unwrap().collect();
+        let excludes: Vec<_> = matches
+            .values_of("EXCLUDE")
+            .map(|x| x.collect())
+            .unwrap_or_else(|| vec![]);
         rack::clone(source, dest, !pretend, &excludes).expect("clone");
     } else if let Some(matches) = matches.subcommand_matches("prune") {
         let dest = matches.value_of("DEST").unwrap();

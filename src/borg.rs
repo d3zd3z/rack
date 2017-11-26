@@ -8,7 +8,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use zfs::Filesystem;
+use zfs::{Filesystem, find_mount};
 
 pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
     let out = Command::new("borg")
@@ -44,7 +44,8 @@ pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
 
 impl Filesystem {
     fn borg_backup(&self, borg_repo: &str, snap: &str, name: &str) -> Result<()> {
-        let dest = format!("{}/.zfs/snapshot/{}", self.mount, snap);
+        let mount = find_mount(&self.name)?;
+        let dest = format!("{}/.zfs/snapshot/{}", mount, snap);
 
         // Stat "." in this directory to request ZFS automount the snapshot.
         let meta = fs::metadata(format!("{}/.", dest))?;
