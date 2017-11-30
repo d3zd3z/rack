@@ -1,84 +1,136 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
-#[macro_use] extern crate clap;
 extern crate rack;
 
+#[macro_use] extern crate structopt_derive;
+extern crate structopt;
+
+use structopt::StructOpt;
+
+#[derive(StructOpt)]
+#[structopt(name = "rack", about = "Snapshot based backups")]
+struct Opt {
+    #[structopt(short = "p", long = "prefix", default_value = "caz")]
+    prefix: String,
+    #[structopt(subcommand)]
+    command: Command,
+}
+
+#[derive(StructOpt)]
+enum Command {
+    #[structopt(name = "sync")]
+    /// rsync root volume to zfs volume
+    SyncCmd {
+        #[structopt(long = "fs", default_value = "lint/ext4gentoo")]
+        /// ZFS filesystem name
+        fs: String,
+    },
+
+    #[structopt(name = "hsync")]
+    /// rsync home volume to zfs volume
+    HSync {
+        #[structopt(long = "fs", default_value = "lint/ext4home")]
+        /// ZFS filesystem name
+        fs: String,
+    },
+
+    #[structopt(name = "snap")]
+    /// Take a current snapshot of concerned volumes.
+    Snap {
+        #[structopt(long = "fs", default_value = "lint/ext4gentoo")]
+        /// ZFS filesystem name
+        fs: String,
+    },
+
+    #[structopt(name = "clone")]
+    /// Clone one volume tree to another
+    CloneCmd {
+        #[structopt(short = "e", long = "exclude")]
+        /// Tree(s) to exclude (source based)
+        excludes: Vec<String>,
+
+        #[structopt(short = "n", long = "pretend")]
+        /// Don't actually do the clone, but show what would be done
+        pretend: bool,
+
+        /// Source zfs filesystem
+        source: String,
+
+        /// Destination zfs filesystem
+        dest: String,
+    },
+
+    #[structopt(name = "prune")]
+    /// Prune older snapshots
+    Prune {
+        #[structopt(long = "really")]
+        /// Actually do the prune
+        really: bool,
+
+        /// Volume to prune
+        dest: String,
+    },
+
+    #[structopt(name = "sure")]
+    /// Update rsure data
+    Sure {
+        #[structopt(long = "fs", default_value = "lint/ext4gentoo")]
+        /// ZFS filesystem name
+        fs: String,
+
+        #[structopt(long = "file")]
+        /// Weave file for rsure data
+        file: Option<String>,
+    },
+
+    #[structopt(name = "borg")]
+    /// Generate borg backups
+    Borg {
+        #[structopt(long = "fs", default_value = "lint/ext4gentoo")]
+        /// ZFS filesystem name
+        fs: String,
+
+        #[structopt(long = "repo", default_value = "/lint/borgs/linaro")]
+        /// Borg repo path
+        repo: String,
+
+        #[structopt(long = "name", default_value = "gentoo-")]
+        /// Borg backup name prefix
+        name: String,
+    },
+}
+
 fn main() {
-    let matches = clap_app!(
-        myapp =>
-        (version: "0.1")
-        (author: "David Brown <davidb@davidb.org>")
-        (about: "Snapshot based backups")
-        (@arg PREFIX: -p --prefix +takes_value "Set snapshot prefix")
-        (@subcommand sync =>
-         (about: "rsync root volume to zfs volume")
-         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4gentoo)"))
-        (@subcommand hsync =>
-         (about: "rsync home volume to zfs volume")
-         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4home)"))
-        (@subcommand snap =>
-         (about: "take a current snapshot of concerned volumes")
-         (@arg FS: --fs +takes_value "ZFS filesystem name (default lint/ext4gentoo)"))
-        (@subcommand clone =>
-         (about: "clone one volume tree to another")
-         (@arg EXCLUDE: --exclude -e ... +takes_value "Tree to exclude (source based)")
-         (@arg PRETEND: --pretend -n "Don't actually do the clone, but show what would be done")
-         (@arg SOURCE: +required "Source zfs volume")
-         (@arg DEST: +required "Destination zfs volume"))
-        (@subcommand prune =>
-         (about: "prune older snapshots")
-         (@arg REALLY: --really "Actually do the prune")
-         (@arg DEST: +required "Volume to prune"))
-        (@subcommand sure =>
-         (about: "Update rsure data")
-         (@arg FS: --fs +takes_value "ZFS filesystem name")
-         (@arg FILE: --file +takes_value "Weave file for rsure data"))
-        (@subcommand borg =>
-         (about: "Generate borg backups")
-         (@arg FS: --fs +takes_value "ZFS filesystem name")
-         (@arg REPO: --repo +takes_value "Borg repo path")
-         (@arg NAME: --name +takes_value "Borg backup name prefix"))
-        ).get_matches();
+    let opt = Opt::from_args();
 
-    let prefix = matches.value_of("PREFIX").unwrap_or("caz");
-
-    if let Some(matches) = matches.subcommand_matches("sync") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4gentoo");
-        rack::sync_root(fs).expect("sync root");
-    } else if let Some(matches) = matches.subcommand_matches("hsync") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4home");
-        rack::sync_home(fs).expect("sync home");
-    } else if let Some(matches) = matches.subcommand_matches("snap") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4gentoo");
-        rack::snapshot(prefix, fs).expect("snapshot");
-    } else if let Some(matches) = matches.subcommand_matches("clone") {
-        let source = matches.value_of("SOURCE").unwrap();
-        let dest = matches.value_of("DEST").unwrap();
-        let pretend = matches.is_present("PRETEND");
-        let excludes: Vec<_> = matches
-            .values_of("EXCLUDE")
-            .map(|x| x.collect())
-            .unwrap_or_else(|| vec![]);
-        rack::clone(source, dest, !pretend, &excludes).expect("clone");
-    } else if let Some(matches) = matches.subcommand_matches("prune") {
-        let dest = matches.value_of("DEST").unwrap();
-        let really = matches.is_present("REALLY");
-        rack::prune(prefix, dest, really).expect("prune");
-    } else if let Some(matches) = matches.subcommand_matches("sure") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4gentoo");
-        let file = matches.value_of("FILE")
-            .map(|x| x.to_string())
-            .unwrap_or_else(|| format!("/lint/sure/ext4gentoo-{}.weave.gz", prefix));
-
-        println!("Sure update of {:?} to {:?}", fs, file);
-        rack::sure(prefix, fs, &file).expect("sure");
-    } else if let Some(matches) = matches.subcommand_matches("borg") {
-        let fs = matches.value_of("FS").unwrap_or("lint/ext4gentoo");
-        let repo = matches.value_of("REPO").unwrap_or("/lint/borgs/linaro");
-        let name = matches.value_of("NAME").unwrap_or("gentoo-");
-        rack::run_borg(fs, repo, name).unwrap();
-    } else {
-        println!("Need to specify a command, try 'help'");
+    match opt.command {
+        Command::SyncCmd { fs } => {
+            rack::sync_root(&fs).expect("sync root");
+        }
+        Command::HSync { fs } => {
+            rack::sync_home(&fs).expect("sync home");
+        }
+        Command::Snap { fs } => {
+            rack::snapshot(&opt.prefix, &fs).expect("snapshot");
+        }
+        Command::CloneCmd { excludes, pretend, source, dest } => {
+            let excl: Vec<_> = excludes.iter().map(|x| x.as_str()).collect();
+            rack::clone(&source, &dest, !pretend, &excl).expect("clone");
+        }
+        Command::Prune { really, dest } => {
+            rack::prune(&opt.prefix, &dest, really).expect("prune");
+        }
+        Command::Sure { fs, file } => {
+            let file = match file {
+                Some(f) => f,
+                None => format!("/lint/sure/ext4gentoo-{}.weave.gz", opt.prefix),
+            };
+            println!("Sure update of {:?} to {:?}", fs, file);
+            rack::sure(&opt.prefix, &fs, &file).expect("sure");
+        }
+        Command::Borg { fs, repo, name } => {
+            rack::run_borg(&fs, &repo, &name).unwrap();
+        }
     }
 }
