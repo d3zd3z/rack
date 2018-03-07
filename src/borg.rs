@@ -16,7 +16,7 @@ pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
         .stderr(Stdio::inherit())
         .output()?;
     if !out.status.success() {
-        return Err(format!("Unable to run borg: {:?}", out.status).into());
+        return Err(format_err!("Unable to run borg: {:?}", out.status));
     }
     let buf = out.stdout;
 
@@ -53,7 +53,7 @@ impl Filesystem {
         // Stat "." in this directory to request ZFS automount the snapshot.
         let meta = fs::metadata(format!("{}/.", dest))?;
         if !meta.is_dir() {
-            return Err(format!("Snapshot is not a directory: {:?}", dest).into());
+            return Err(format_err!("Snapshot is not a directory: {:?}", dest));
         }
 
         // Bind mount to have consistent path for borg.  This needs to be specific to the given
@@ -61,7 +61,7 @@ impl Filesystem {
         let srcdir = match name {
             "gentoo-" => "/mnt/root",
             "home-" => "/mnt/home",
-            name => return Err(format!("Unsupported borg backup name: {:?}", name).into()),
+            name => return Err(format_err!("Unsupported borg backup name: {:?}", name)),
         };
         let _root = MountedDir::new(&dest, Path::new(&srcdir))?;
 
@@ -75,7 +75,7 @@ impl Filesystem {
             .stderr(Stdio::inherit())
             .status()?;
         if !status.success() {
-            return Err(format!("Error running borg: {:?}", status).into());
+            return Err(format_err!("Error running borg: {:?}", status));
         }
 
         Ok(())

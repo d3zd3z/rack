@@ -1,6 +1,7 @@
 //! ZFS operations
 
 use chrono::{Datelike, Timelike, Local};
+use failure::err_msg;
 use regex::{self, Regex};
 use std::collections::{BTreeSet, HashMap};
 use std::fs::File;
@@ -8,7 +9,7 @@ use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::os::unix::io::{AsRawFd, FromRawFd};
 
-use {ErrorKind, Result};
+use {RackError, Result};
 use checked::CheckedExt;
 
 #[derive(Debug)]
@@ -52,7 +53,7 @@ impl Zfs {
             let line = line?;
             let fields: Vec<_> = line.splitn(2, '\t').collect();
             if fields.len() != 2 {
-                return Err(format!("zfs line doesn't have two fields: {:?}", line).into());
+                return Err(format_err!("zfs line doesn't have two fields: {:?}", line));
             }
             // fields[0] is now the volume/snap name, and fields[1] is the mountpoint.
             let vols: Vec<_> = fields[0].splitn(2, '@').collect();
@@ -184,12 +185,12 @@ impl Zfs {
     fn clone_one(&self, source: &Filesystem, dest: &Filesystem) -> Result<()> {
         if let Some(ssnap) = dest.snaps.last() {
             if !source.snaps.contains(ssnap) {
-                return Err("Last dest snapshot not present in source".into());
+                return Err(err_msg("Last dest snapshot not present in source"));
             }
             let dsnap = if let Some(dsnap) = source.snaps.last() {
                 dsnap
             } else {
-                return Err("Source volume has no snapshots".into());
+                return Err(err_msg("Source volume has no snapshots"));
             };
 
             if dsnap == ssnap {
@@ -211,7 +212,7 @@ impl Zfs {
             let dsnap = if let Some(dsnap) = source.snaps.first() {
                 dsnap
             } else {
-                return Err("Source volume has no snapshots".into());
+                return Err(err_msg("Source volume has no snapshots"));
             };
 
             println!("Full clone from {}@{} to {}", source.name, dsnap, dest.name);
@@ -253,7 +254,7 @@ impl Zfs {
             let line = line?;
             let fields: Vec<_> = line.split('\t').collect();
             if fields.len() < 2 {
-                return Err(format!("Invalid line from zfs send size estimate: {:?}", line).into());
+                return Err(format_err!("Invalid line from zfs send size estimate: {:?}", line));
             }
             if fields[0] != "size" {
                 continue;
@@ -303,13 +304,13 @@ impl Zfs {
         // zfs receive -vFu <dest>
 
         if !sender.wait()?.success() {
-            return Err(format!("zfs send error").into());
+            return Err(format_err!("zfs send error"));
         }
         if !pv.wait()?.success() {
-            return Err(format!("pv error").into());
+            return Err(format_err!("pv error"));
         }
         if !receiver.wait()?.success() {
-            return Err(format!("zfs receive error").into());
+            return Err(format_err!("zfs receive error"));
         }
 
         Ok(())
@@ -322,7 +323,7 @@ impl Zfs {
         let fs = if let Some(fs) = self.filesystems.iter().find(|fs| fs.name == fs_name) {
             fs
         } else {
-            return Err(format!("Volume not found in zfs {:?}", fs_name).into());
+            return Err(format_err!("Volume not found in zfs {:?}", fs_name));
         };
 
         // Get all of the snapshots, oldest first, that match this tag, and pair them up with
@@ -387,7 +388,7 @@ impl Zfs {
             let line = line?;
             let fields: Vec<_> = line.split('\t').collect();
             if fields.len() != 4 {
-                return Err(format!("zfs get line doesn't have 4 fields: {:?}", line).into());
+                return Err(format_err!("zfs get line doesn't have 4 fields: {:?}", line));
             }
             // 0 - name
             // 1 - property
@@ -437,7 +438,7 @@ pub fn find_mount(name: &str) -> Result<String> {
             return Ok(fields[1].to_owned())
         }
     }
-    return Err(ErrorKind::NotMounted(name.to_owned()).into());
+    return Err(RackError::NotMounted { fs: name.to_owned() }.into());
 }
 
 /// The number of recent ones to keep.

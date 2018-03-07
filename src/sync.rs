@@ -29,7 +29,7 @@ pub fn sync_root(root_fs: &str) -> Result<()> {
         .arg(&format!("/{}/.", root_fs))
         .status()?;
     if !status.success() {
-        return Err(format!("Error running rsync: {:?}", status).into());
+        return Err(format_err!("Error running rsync: {:?}", status));
     }
     Ok(())
 }
@@ -51,7 +51,7 @@ pub fn sync_home(home_fs: &str) -> Result<()> {
         .arg(&format!("/{}/.", home_fs))
         .status()?;
     if !status.success() {
-        return Err(format!("Error running rsync: {:?}", status).into());
+        return Err(format_err!("Error running rsync: {:?}", status));
     }
     Ok(())
 }
@@ -61,11 +61,11 @@ fn ensure_empty<P: AsRef<Path>>(name: P) -> Result<()> {
     let name = name.as_ref();
 
     if !name.is_dir() {
-        return Err(format!("Root {:?} is not a directory", name).into());
+        return Err(format_err!("Root {:?} is not a directory", name));
     }
 
     if let Some(entry) = fs::read_dir(name)?.next() {
-        return Err(format!("Root {:?} is not empty (has {:?})", name, entry?).into());
+        return Err(format_err!("Root {:?} is not empty (has {:?})", name, entry?));
     }
 
     Ok(())
@@ -84,7 +84,7 @@ impl<'a> MountedDir<'a> {
             .arg(to)
             .status()?;
         if !status.success() {
-            return Err(format!("Error running mount command: {:?}", status).into());
+            return Err(format_err!("Error running mount command: {:?}", status));
         }
         Ok(MountedDir(to))
     }

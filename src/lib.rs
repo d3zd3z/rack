@@ -10,15 +10,17 @@
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
 extern crate chrono;
-#[macro_use] extern crate error_chain;
+#[macro_use] extern crate failure;
+#[macro_use] extern crate failure_derive;
 extern crate regex;
 extern crate rsure;
 
+use failure::err_msg;
 use regex::Regex;
 use std::collections::HashSet;
-use std::io;
 use std::path::Path;
 use std::process::ExitStatus;
+use std::result;
 
 mod checked;
 mod borg;
@@ -29,31 +31,21 @@ mod zfs;
 use zfs::Zfs;
 
 /// Local error type.
-error_chain! {
-    types {
-        Error, ErrorKind, ChainErr, Result;
-    }
-
-    links {
-        Rsure(rsure::Error, rsure::ErrorKind);
-    }
-
-    foreign_links {
-        Io(io::Error);
-        Regex(regex::Error);
-    }
-
-    errors {
-        Command(command: String, status: ExitStatus) {
-            description("error running command")
-            display("error running command: {:?} ({})", status, command)
-        }
-        NotMounted(fs: String) {
-            description("ZFS volume is not mounted")
-            display("ZFS volume is not mounted: {:?}", fs)
-        }
-    }
+#[derive(Fail, Debug)]
+enum RackError {
+    #[fail(display = "error running command: {:?}: {}", status, command)]
+    Command {
+        command: String,
+        status: ExitStatus,
+    },
+    #[fail(display = "not mounted: {:?}", fs)]
+    NotMounted {
+        fs: String,
+    },
 }
+
+pub type Result<T> = result::Result<T, Error>;
+pub type Error = failure::Error;
 
 /// The path where root will be temporarily bind mounted.
 static ROOT_BIND_DIR: &'static str = "/mnt/root";
@@ -103,7 +95,7 @@ pub fn sure(prefix: &str, filesystem: &str, surefile: &str) -> Result<()> {
     let fs = if let Some(fs) = snap.filesystems.iter().find(|&fs| fs.name == filesystem) {
         fs
     } else {
-        return Err("No snapshots match".into());
+        return Err(err_msg("No snapshots match"));
     };
 
     let snaps: Vec<_> = fs.snaps.iter().filter(|x| re.is_match(x)).collect();
@@ -153,7 +145,7 @@ pub fn run_borg(filesystem: &str, borg_repo: &str, name: &str) -> Result<()> {
     let fs = if let Some(fs) = snap.filesystems.iter().find(|&fs| fs.name == filesystem) {
         fs
     } else {
-        return Err("No snapshots match".into());
+        return Err(err_msg("No snapshots match"));
     };
 
     // Just get the snapshots matching this single prefix.
