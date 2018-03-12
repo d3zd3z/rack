@@ -24,12 +24,12 @@ pub struct SnapConfig {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SnapConvention {
     name: String,
-    last: i32,
-    hourly: i32,
-    daily: i32,
-    weekly: i32,
-    monthly: i32,
-    yearly: i32,
+    last: Option<i32>,
+    hourly: Option<i32>,
+    daily: Option<i32>,
+    weekly: Option<i32>,
+    monthly: Option<i32>,
+    yearly: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
