@@ -106,24 +106,33 @@ enum Command {
 }
 
 fn main() {
+    match main_err() {
+        Ok(()) => (),
+        Err(e) => {
+            println!("Error: {}", e);
+        }
+    }
+}
+
+fn main_err() -> rack::Result<()> {
     let opt = Opt::from_args();
 
     match opt.command {
         Command::SyncCmd { fs } => {
-            rack::sync_root(&fs).expect("sync root");
+            rack::sync_root(&fs)?;
         }
         Command::HSync { fs } => {
-            rack::sync_home(&fs).expect("sync home");
+            rack::sync_home(&fs)?;
         }
         Command::Snap { fs } => {
-            rack::snapshot(&opt.prefix, &fs).expect("snapshot");
+            rack::snapshot(&opt.prefix, &fs)?;
         }
         Command::CloneCmd { excludes, pretend, source, dest } => {
             let excl: Vec<_> = excludes.iter().map(|x| x.as_str()).collect();
-            rack::clone(&source, &dest, !pretend, &excl).expect("clone");
+            rack::clone(&source, &dest, !pretend, &excl)?;
         }
         Command::Prune { really, dest } => {
-            rack::prune(&opt.prefix, &dest, really).expect("prune");
+            rack::prune(&opt.prefix, &dest, really)?;
         }
         Command::Sure { fs, file } => {
             let file = match file {
@@ -131,14 +140,15 @@ fn main() {
                 None => format!("/lint/sure/ext4gentoo-{}.weave.gz", opt.prefix),
             };
             println!("Sure update of {:?} to {:?}", fs, file);
-            rack::sure(&opt.prefix, &fs, &file).expect("sure");
+            rack::sure(&opt.prefix, &fs, &file)?;
         }
         Command::Borg { fs, repo, name } => {
-            rack::run_borg(&fs, &repo, &name).unwrap();
+            rack::run_borg(&fs, &repo, &name)?;
         }
         Command::Hack => {
-            let conf = rack::Config::load("/home/davidb/.gack.yaml").expect("config");
+            let conf = rack::Config::load("/home/davidb/.gack.yaml")?;
             println!("Config file: {:?}", conf);
         }
     }
+    Ok(())
 }
