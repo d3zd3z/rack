@@ -99,6 +99,10 @@ enum Command {
         /// Borg backup name prefix
         name: String,
     },
+
+    #[structopt(name = "hack")]
+    /// Hacking work for new api.
+    Hack,
 }
 
 fn main() {
@@ -131,6 +135,10 @@ fn main() {
         }
         Command::Borg { fs, repo, name } => {
             rack::run_borg(&fs, &repo, &name).unwrap();
+        }
+        Command::Hack => {
+            let conf = rack::Config::load("/home/davidb/.gack.yaml").expect("config");
+            println!("Config file: {:?}", conf);
         }
     }
 }

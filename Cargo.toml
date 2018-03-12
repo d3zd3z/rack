@@ -30,6 +30,9 @@ failure_derive = "0.1.1"
 regex = "0.2.2"
 structopt = "0.1"
 structopt-derive = "0.1"
+serde = "1.0"
+serde_derive = "1.0"
+serde_yaml = "0.7"
 
 [dependencies.clippy]
 optional = true

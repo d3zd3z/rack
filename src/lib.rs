@@ -14,6 +14,9 @@ extern crate chrono;
 #[macro_use] extern crate failure_derive;
 extern crate regex;
 extern crate rsure;
+extern crate serde;
+extern crate serde_yaml;
+#[macro_use] extern crate serde_derive;
 
 use failure::err_msg;
 use regex::Regex;
@@ -22,6 +25,11 @@ use std::path::Path;
 use std::process::ExitStatus;
 use std::result;
 
+// Reexports.
+pub use config::{Config, SnapConfig, SnapConvention, SureConfig, SureVolume};
+pub use config::{ResticConfig, ResticVolume, CloneConfig, CloneVolume};
+
+mod config;
 mod checked;
 mod borg;
 mod lvm;
