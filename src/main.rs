@@ -6,6 +6,7 @@ extern crate rack;
 #[macro_use] extern crate structopt_derive;
 extern crate structopt;
 
+use std::process;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -110,6 +111,7 @@ fn main() {
         Ok(()) => (),
         Err(e) => {
             println!("Error: {}", e);
+            process::exit(1);
         }
     }
 }
