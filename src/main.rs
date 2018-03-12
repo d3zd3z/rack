@@ -6,6 +6,7 @@ extern crate rack;
 #[macro_use] extern crate structopt_derive;
 extern crate structopt;
 
+use std::env;
 use std::process;
 use structopt::StructOpt;
 
@@ -111,6 +112,11 @@ fn main() {
         Ok(()) => (),
         Err(e) => {
             println!("Error: {}", e);
+            if env::var("RUST_BACKTRACE").is_ok() {
+                println!("{}", e.backtrace());
+            } else {
+                println!("Run with RUST_BACKTRACE=1 for a backtrace");
+            }
             process::exit(1);
         }
     }
