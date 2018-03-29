@@ -130,6 +130,16 @@ impl Zfs {
         Ok(())
     }
 
+    /// Make a new snapshot, of a given name.
+    pub fn take_named_snapshot(&self, fs: &str, name: &str) -> Result<()> {
+        let name = format!("{}@{}", fs, name);
+        Command::new("zfs")
+            .args(&["snapshot", &name])
+            .stderr(Stdio::inherit())
+            .checked_run()?;
+        Ok(())
+    }
+
     /// Clone one volume tree to another.  Perform should be set to true to
     /// actually do the clones, otherwise it just prints what it would do.
     pub fn clone(&self, source: &str, dest: &str, perform: bool, excludes: &[&str]) -> Result<()> {

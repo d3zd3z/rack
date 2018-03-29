@@ -18,15 +18,16 @@ extern crate serde;
 extern crate serde_yaml;
 #[macro_use] extern crate serde_derive;
 
+use chrono::{DateTime, Utc};
 use failure::err_msg;
 use regex::Regex;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::path::Path;
 use std::process::ExitStatus;
 use std::result;
 
 // Reexports.
-pub use config::{Config, SnapConfig, SnapConvention, SureConfig, SureVolume};
+pub use config::{Config, SnapConfig, SnapVolume, SnapConvention, SureConfig, SureVolume};
 pub use config::{ResticConfig, ResticVolume, CloneConfig, CloneVolume};
 
 mod config;
@@ -71,6 +72,47 @@ pub fn snapshot(prefix: &str, filesystem: &str) -> Result<()> {
     println!("next: {}: {}", next, snap.snap_name(next));
     snap.take_snapshot(filesystem, next)?;
     Ok(())
+}
+
+impl SnapConfig {
+    /// Create time-based snapshots for all volumes mentioned in the config
+    /// file.
+    pub fn snapshot(&self, now: DateTime<Utc>, pretend: bool) -> Result<()> {
+        let convs: HashMap<&str, &SnapConvention> =
+            self.conventions.iter().map(|c| (c.name.as_str(), c)).collect();
+
+        // Look up all of the conventions before running any, in so that we
+        // can report an error before creating any snapshots.
+        let mut sn: Vec<(&SnapVolume, &SnapConvention)> = vec![];
+        for v in &self.volumes {
+            let c = convs.get(v.convention.as_str())
+                .ok_or_else(|| format_err!("Invalid convention {:?} in snap {:?}",
+                                           v.convention, v.name))?;
+            sn.push((v, *c));
+        }
+
+        let zfs = Zfs::new("none")?;
+
+        for &(v, c) in &sn {
+            v.snapshot(c, now, &zfs, pretend)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl SnapVolume {
+    // Create a time-based snapshot.
+    pub fn snapshot(&self, conv: &SnapConvention, now: DateTime<Utc>,
+                    zfs: &Zfs, pretend: bool) -> Result<()>
+    {
+        let name = format!("{}-{}", conv.name, now.format("%Y%m%d%H%M"));
+        println!("Snapshot of {:?} at {}", name, now);
+        if !pretend {
+            zfs.take_named_snapshot(&self.zfs, &name)?;
+        }
+        Ok(())
+    }
 }
 
 /// Clone one volume to another.
@@ -160,4 +202,46 @@ pub fn run_borg(filesystem: &str, borg_repo: &str, name: &str) -> Result<()> {
     borg::run(fs, borg_repo, name).unwrap();
 
     Ok(())
+}
+
+/// A filesystem volume, which can be local or on a given host.
+#[derive(Eq, PartialEq, Debug)]
+pub enum FsName {
+    Local { name : String },
+    Remote {
+        host: String,
+        name: String,
+    },
+}
+
+/// Parse a zfs filesystem name.  Possible configurations are just a volume
+/// name, and a host:filesystem name.
+fn parse_fsname(text: &str) -> FsName {
+    let fields: Vec<_> = text.splitn(2, ':').collect();
+    match fields.len() {
+        1 => FsName::Local {
+            name: text.to_owned()
+        },
+        2 => FsName::Remote {
+            host: fields[0].to_owned(),
+            name: fields[1].to_owned(),
+        },
+        _ => panic!("Unexpected splitn result"),
+    }
+}
+
+#[test]
+fn test_parse_fsname() {
+    assert_eq!(parse_fsname("simple/name"),
+        FsName::Local { name: "simple/name".to_string() });
+    assert_eq!(parse_fsname("host:simple/name"),
+        FsName::Remote {
+            host: "host".to_string(),
+            name: "simple/name".to_string(),
+        });
+    assert_eq!(parse_fsname("host:simple/name:with-colon"),
+        FsName::Remote {
+            host: "host".to_string(),
+            name: "simple/name:with-colon".to_string(),
+        });
 }

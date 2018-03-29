@@ -3,84 +3,92 @@
 //! This module defines the config file.
 
 use Result;
+use failure::err_msg;
 use serde_yaml;
+use std::env;
 use std::fs::File;
 use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
-    snap: SnapConfig,
-    sure: SureConfig,
-    restic: ResticConfig,
-    clone: CloneConfig,
+    pub snap: SnapConfig,
+    pub sure: SureConfig,
+    pub restic: ResticConfig,
+    pub clone: CloneConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SnapConfig {
-    conventions: Vec<SnapConvention>,
-    volumes: Vec<SnapVolume>,
+    pub conventions: Vec<SnapConvention>,
+    pub volumes: Vec<SnapVolume>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SnapConvention {
-    name: String,
-    last: Option<i32>,
-    hourly: Option<i32>,
-    daily: Option<i32>,
-    weekly: Option<i32>,
-    monthly: Option<i32>,
-    yearly: Option<i32>,
+    pub name: String,
+    pub last: Option<i32>,
+    pub hourly: Option<i32>,
+    pub daily: Option<i32>,
+    pub weekly: Option<i32>,
+    pub monthly: Option<i32>,
+    pub yearly: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SnapVolume {
-    name: String,
-    convention: String,
-    zfs: String,
+    pub name: String,
+    pub convention: String,
+    pub zfs: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SureConfig {
-    volumes: Vec<SureVolume>,
+    pub volumes: Vec<SureVolume>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SureVolume {
-    name: String,
-    zfs: String,
-    bind: String,
-    sure: String,
-    convention: String,
+    pub name: String,
+    pub zfs: String,
+    pub bind: String,
+    pub sure: String,
+    pub convention: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CloneConfig {
-    volumes: Vec<CloneVolume>,
+    pub volumes: Vec<CloneVolume>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CloneVolume {
-    name: String,
-    source: String,
-    dest: String,
-    skip: Option<bool>,
+    pub name: String,
+    pub source: String,
+    pub dest: String,
+    pub skip: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResticConfig {
-    volumes: Vec<ResticVolume>,
+    pub volumes: Vec<ResticVolume>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResticVolume {
-    name: String,
-    zfs: String,
-    bind: String,
-    repo: String,
-    passwordfile: String,
+    pub name: String,
+    pub zfs: String,
+    pub bind: String,
+    pub repo: String,
+    pub passwordfile: String,
 }
 
 impl Config {
+    pub fn load_default() -> Result<Config> {
+        let home = env::home_dir().ok_or_else(|| err_msg("Unable to find home directory"))?;
+        let yaml = home.join(".gack.yaml");
+        Config::load(yaml)
+    }
+
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Config> {
         let fd = File::open(path)?;
 

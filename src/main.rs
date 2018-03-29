@@ -1,11 +1,13 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
+extern crate chrono;
 extern crate rack;
 
 #[macro_use] extern crate structopt_derive;
 extern crate structopt;
 
+use chrono::Utc;
 use std::env;
 use std::process;
 use structopt::StructOpt;
@@ -40,9 +42,9 @@ enum Command {
     #[structopt(name = "snap")]
     /// Take a current snapshot of concerned volumes.
     Snap {
-        #[structopt(long = "fs", default_value = "lint/ext4gentoo")]
-        /// ZFS filesystem name
-        fs: String,
+        #[structopt(short = "n", long = "pretend")]
+        /// show what would be executed, but don't actually run.
+        pretend: bool,
     },
 
     #[structopt(name = "clone")]
@@ -132,8 +134,9 @@ fn main_err() -> rack::Result<()> {
         Command::HSync { fs } => {
             rack::sync_home(&fs)?;
         }
-        Command::Snap { fs } => {
-            rack::snapshot(&opt.prefix, &fs)?;
+        Command::Snap { pretend } => {
+            let conf = rack::Config::load_default()?;
+            conf.snap.snapshot(Utc::now(), pretend)?;
         }
         Command::CloneCmd { excludes, pretend, source, dest } => {
             let excl: Vec<_> = excludes.iter().map(|x| x.as_str()).collect();
@@ -154,7 +157,7 @@ fn main_err() -> rack::Result<()> {
             rack::run_borg(&fs, &repo, &name)?;
         }
         Command::Hack => {
-            let conf = rack::Config::load("/home/davidb/.gack.yaml")?;
+            let conf = rack::Config::load_default()?;
             println!("Config file: {:?}", conf);
         }
     }
