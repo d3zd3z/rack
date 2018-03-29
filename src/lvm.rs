@@ -1,9 +1,20 @@
 //! Manage lvm snapshots.
 
 use chrono::{Datelike, Local};
-use std::collections::{HashMap, HashSet};
-use std::io::{BufRead, BufReader};
-use std::process::{Command, Stdio};
+use std::{
+    collections::{
+        HashMap,
+        HashSet,
+    },
+    io::{
+        BufRead,
+        BufReader,
+    },
+    process::{
+        Command,
+        Stdio,
+    },
+};
 
 use Result;
 use checked::CheckedExt;

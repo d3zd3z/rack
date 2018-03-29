@@ -3,11 +3,19 @@
 use Result;
 use sync::MountedDir;
 
-use std::collections::HashSet;
-use std::fs;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-use std::process::{Command, Stdio};
+use std::{
+    collections::HashSet,
+    fs,
+    io::{
+        BufRead,
+        BufReader,
+    },
+    path::Path,
+    process::{
+        Command,
+        Stdio,
+    },
+};
 use zfs::{Filesystem, find_mount};
 
 pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {

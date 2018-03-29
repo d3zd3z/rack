@@ -1,8 +1,10 @@
 //! Sync the root filesystem to a volume on ZFS.
 
-use std::fs;
-use std::path::Path;
-use std::process::Command;
+use std::{
+    fs,
+    path::Path,
+    process::Command,
+};
 
 use lvm::Lvm;
 use Result;

@@ -5,9 +5,11 @@
 use Result;
 use failure::err_msg;
 use serde_yaml;
-use std::env;
-use std::fs::File;
-use std::path::Path;
+use std::{
+    env,
+    fs::File,
+    path::Path,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {

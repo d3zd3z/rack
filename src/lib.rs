@@ -18,17 +18,34 @@ extern crate serde;
 extern crate serde_yaml;
 #[macro_use] extern crate serde_derive;
 
-use chrono::{DateTime, Utc};
+use chrono::{
+    DateTime, Utc
+};
 use failure::err_msg;
 use regex::Regex;
-use std::collections::{HashSet, HashMap};
-use std::path::Path;
-use std::process::ExitStatus;
-use std::result;
+use std::{
+    collections::{
+        HashMap,
+        HashSet,
+    },
+    path::Path,
+    process::ExitStatus,
+    result,
+};
 
 // Reexports.
-pub use config::{Config, SnapConfig, SnapVolume, SnapConvention, SureConfig, SureVolume};
-pub use config::{ResticConfig, ResticVolume, CloneConfig, CloneVolume};
+pub use config::{
+    CloneConfig,
+    CloneVolume,
+    Config,
+    ResticConfig,
+    ResticVolume,
+    SnapConfig,
+    SnapConvention,
+    SnapVolume,
+    SureConfig,
+    SureVolume,
+};
 
 mod config;
 mod checked;

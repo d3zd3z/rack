@@ -3,11 +3,25 @@
 use chrono::{Datelike, Timelike, Local};
 use failure::err_msg;
 use regex::{self, Regex};
-use std::collections::{BTreeSet, HashMap};
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::process::{Command, Stdio};
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::{
+    collections::{
+        BTreeSet,
+        HashMap,
+    },
+    fs::File,
+    io::{
+        BufRead,
+        BufReader,
+    },
+    process::{
+        Command,
+        Stdio,
+    },
+    os::unix::io::{
+        AsRawFd,
+        FromRawFd,
+    },
+};
 
 use {RackError, Result};
 use checked::CheckedExt;
