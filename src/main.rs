@@ -8,8 +8,11 @@ extern crate rack;
 extern crate structopt;
 
 use chrono::Utc;
-use std::env;
-use std::process;
+use std::{
+    env,
+    path::Path,
+    process,
+};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -17,6 +20,9 @@ use structopt::StructOpt;
 struct Opt {
     #[structopt(short = "p", long = "prefix", default_value = "caz")]
     prefix: String,
+    /// Override default config file.  Default ~/.gack.yaml.
+    #[structopt(long = "config")]
+    config: Option<String>,
     #[structopt(subcommand)]
     command: Command,
 }
@@ -127,6 +133,10 @@ fn main() {
 fn main_err() -> rack::Result<()> {
     let opt = Opt::from_args();
 
+    let config_file = opt.config.as_ref()
+        .map_or_else(|| rack::Config::get_default(),
+                     |c| Ok(Path::new(c).to_path_buf()))?;
+
     match opt.command {
         Command::SyncCmd { fs } => {
             rack::sync_root(&fs)?;
@@ -135,7 +145,7 @@ fn main_err() -> rack::Result<()> {
             rack::sync_home(&fs)?;
         }
         Command::Snap { pretend } => {
-            let conf = rack::Config::load_default()?;
+            let conf = rack::Config::load(&config_file)?;
             conf.snap.snapshot(Utc::now(), pretend)?;
         }
         Command::CloneCmd { excludes, pretend, source, dest } => {

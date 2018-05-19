@@ -8,7 +8,10 @@ use serde_yaml;
 use std::{
     env,
     fs::File,
-    path::Path,
+    path::{
+        Path,
+        PathBuf,
+    },
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -85,10 +88,13 @@ pub struct ResticVolume {
 }
 
 impl Config {
-    pub fn load_default() -> Result<Config> {
+    pub fn get_default() -> Result<PathBuf> {
         let home = env::home_dir().ok_or_else(|| err_msg("Unable to find home directory"))?;
-        let yaml = home.join(".gack.yaml");
-        Config::load(yaml)
+        Ok(home.join(".gack.yaml"))
+    }
+
+    pub fn load_default() -> Result<Config> {
+        Config::load(Self::get_default()?)
     }
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Config> {
