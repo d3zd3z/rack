@@ -85,13 +85,9 @@ enum Command {
     #[structopt(name = "sure")]
     /// Update rsure data
     Sure {
-        #[structopt(long = "fs", default_value = "lint/ext4gentoo")]
-        /// ZFS filesystem name
-        fs: String,
-
-        #[structopt(long = "file")]
-        /// Weave file for rsure data
-        file: Option<String>,
+        /// Don't actually do the operation, but show what would be done.
+        #[structopt(short = "n", long = "pretend")]
+        pretend: bool,
     },
 
     #[structopt(name = "borg")]
@@ -155,13 +151,9 @@ fn main_err() -> rack::Result<()> {
         Command::Prune { really, dest } => {
             rack::prune(&opt.prefix, &dest, really)?;
         }
-        Command::Sure { fs, file } => {
-            let file = match file {
-                Some(f) => f,
-                None => format!("/lint/sure/ext4gentoo-{}.weave.gz", opt.prefix),
-            };
-            println!("Sure update of {:?} to {:?}", fs, file);
-            rack::sure(&opt.prefix, &fs, &file)?;
+        Command::Sure { pretend } => {
+            let conf = rack::Config::load(&config_file)?;
+            conf.sure.run(pretend)?;
         }
         Command::Borg { fs, repo, name } => {
             rack::run_borg(&fs, &repo, &name)?;

@@ -124,9 +124,22 @@ impl SnapVolume {
                     zfs: &Zfs, pretend: bool) -> Result<()>
     {
         let name = format!("{}-{}", conv.name, now.format("%Y%m%d%H%M"));
-        println!("Snapshot of {:?} at {}", name, now);
+        println!("Snapshot of {:?}@{:?} at {}", self.zfs, name, now);
         if !pretend {
             zfs.take_named_snapshot(&self.zfs, &name)?;
+        }
+        Ok(())
+    }
+}
+
+impl SureConfig {
+    pub fn run(&self, pretend: bool) -> Result<()> {
+        for vol in &self.volumes {
+            println!("Sure update {:?}", vol);
+
+            if !pretend {
+                sure(&vol.convention, &vol.zfs, &vol.sure)?;
+            }
         }
         Ok(())
     }
@@ -155,7 +168,8 @@ pub fn sure(prefix: &str, filesystem: &str, surefile: &str) -> Result<()> {
 
     // A regex to filter snapshots matching the desired prefix.
     let quoted = regex::escape(prefix);
-    let pat = format!(r"^{}\d{{4}}-[-\d]+$", quoted);
+    // let pat = format!(r"^{}\d{{4}}-[-\d]+$", quoted);
+    let pat = format!(r"^{}-[-\d]+$", quoted);
     let re = Regex::new(&pat)?;
 
     // Find the filesystem that matches
