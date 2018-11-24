@@ -2,7 +2,7 @@
 //!
 //! This module defines the config file.
 
-use Result;
+use crate::Result;
 use failure::err_msg;
 use serde_yaml;
 use std::{

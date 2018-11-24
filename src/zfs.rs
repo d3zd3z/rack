@@ -23,8 +23,8 @@ use std::{
     },
 };
 
-use {RackError, Result};
-use checked::CheckedExt;
+use crate::{RackError, Result};
+use crate::checked::CheckedExt;
 
 #[derive(Debug)]
 pub struct Zfs {

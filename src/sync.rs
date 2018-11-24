@@ -6,10 +6,10 @@ use std::{
     process::Command,
 };
 
-use lvm::Lvm;
-use Result;
-use ROOT_BIND_DIR;
-use HOME_BIND_DIR;
+use crate::lvm::Lvm;
+use crate::Result;
+use crate::ROOT_BIND_DIR;
+use crate::HOME_BIND_DIR;
 
 /// Sync the root filesystem to a volume on ZFS.
 ///

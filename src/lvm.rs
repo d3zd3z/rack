@@ -16,8 +16,8 @@ use std::{
     },
 };
 
-use Result;
-use checked::CheckedExt;
+use crate::Result;
+use crate::checked::CheckedExt;
 
 #[derive(Debug)]
 pub struct Lvm {

@@ -34,7 +34,7 @@ use std::{
 };
 
 // Reexports.
-pub use config::{
+pub use crate::config::{
     CloneConfig,
     CloneVolume,
     Config,
@@ -54,7 +54,7 @@ mod lvm;
 mod sync;
 mod zfs;
 
-use zfs::Zfs;
+use crate::zfs::Zfs;
 
 /// Local error type.
 #[derive(Fail, Debug)]
@@ -79,7 +79,7 @@ static ROOT_BIND_DIR: &'static str = "/mnt/root";
 /// The path where home will be temporarily mounted.
 static HOME_BIND_DIR: &'static str = "/mnt/home";
 
-pub use sync::{sync_home, sync_root};
+pub use crate::sync::{sync_home, sync_root};
 
 /// Make a snapshot of some useful volumes.
 pub fn snapshot(prefix: &str, filesystem: &str) -> Result<()> {

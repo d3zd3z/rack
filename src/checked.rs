@@ -4,7 +4,7 @@ use std::process::{
     Command,
     Output,
 };
-use {RackError, Result};
+use crate::{RackError, Result};
 
 pub trait CheckedExt {
     /// Run the given command, normalizing to the local Result type, and returning a local error if

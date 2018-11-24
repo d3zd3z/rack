@@ -1,7 +1,7 @@
 //! Borg backups
 
-use Result;
-use sync::MountedDir;
+use crate::Result;
+use crate::sync::MountedDir;
 
 use std::{
     collections::HashSet,
@@ -16,7 +16,7 @@ use std::{
         Stdio,
     },
 };
-use zfs::{Filesystem, find_mount};
+use crate::zfs::{Filesystem, find_mount};
 
 pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
     let out = Command::new("borg")
