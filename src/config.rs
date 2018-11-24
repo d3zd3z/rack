@@ -6,7 +6,6 @@ use crate::Result;
 use failure::err_msg;
 use serde_yaml;
 use std::{
-    env,
     fs::File,
     path::{
         Path,
@@ -89,7 +88,7 @@ pub struct ResticVolume {
 
 impl Config {
     pub fn get_default() -> Result<PathBuf> {
-        let home = env::home_dir().ok_or_else(|| err_msg("Unable to find home directory"))?;
+        let home = dirs::home_dir().ok_or_else(|| err_msg("Unable to find home directory"))?;
         Ok(home.join(".gack.yaml"))
     }
 
