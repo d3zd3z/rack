@@ -9,13 +9,13 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
-extern crate chrono;
+
 #[macro_use] extern crate failure;
 #[macro_use] extern crate failure_derive;
-extern crate regex;
-extern crate rsure;
-extern crate serde;
-extern crate serde_yaml;
+use regex;
+use rsure;
+
+
 #[macro_use] extern crate serde_derive;
 
 use chrono::{

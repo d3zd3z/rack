@@ -1,11 +1,7 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
-extern crate chrono;
-extern crate rack;
-
-#[macro_use] extern crate structopt_derive;
-extern crate structopt;
+use rack;
 
 use chrono::Utc;
 use std::{
