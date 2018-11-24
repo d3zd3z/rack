@@ -2,8 +2,9 @@
 
 use crate::sync::MountedDir;
 use crate::Result;
-
 use crate::zfs::{find_mount, Filesystem};
+
+use failure::format_err;
 use std::{
     collections::HashSet,
     fs,

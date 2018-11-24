@@ -8,18 +8,9 @@
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 
-#[macro_use]
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
-use regex;
-use rsure;
-
-#[macro_use]
-extern crate serde_derive;
-
 use chrono::{DateTime, Utc};
-use failure::err_msg;
+use failure::{err_msg, format_err};
+use failure_derive::Fail;
 use regex::Regex;
 use std::{
     collections::{HashMap, HashSet},

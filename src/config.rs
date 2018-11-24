@@ -4,7 +4,7 @@
 
 use crate::Result;
 use failure::err_msg;
-use serde_yaml;
+use serde_derive::{Deserialize, Serialize};
 use std::{
     fs::File,
     path::{Path, PathBuf},

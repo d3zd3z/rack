@@ -1,7 +1,7 @@
 //! ZFS operations
 
 use chrono::{Datelike, Local, Timelike};
-use failure::err_msg;
+use failure::{err_msg, format_err};
 use regex::{self, Regex};
 use std::{
     collections::{BTreeSet, HashMap},

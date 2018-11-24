@@ -1,5 +1,6 @@
 //! Sync the root filesystem to a volume on ZFS.
 
+use failure::format_err;
 use std::{fs, path::Path, process::Command};
 
 use crate::lvm::Lvm;
