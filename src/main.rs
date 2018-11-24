@@ -4,7 +4,7 @@
 use rack;
 
 use chrono::Utc;
-use std::{env, path::Path, process};
+use std::path::Path;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -103,22 +103,7 @@ enum Command {
     Hack,
 }
 
-fn main() {
-    match main_err() {
-        Ok(()) => (),
-        Err(e) => {
-            println!("Error: {}", e);
-            if env::var("RUST_BACKTRACE").is_ok() {
-                println!("{}", e.backtrace());
-            } else {
-                println!("Run with RUST_BACKTRACE=1 for a backtrace");
-            }
-            process::exit(1);
-        }
-    }
-}
-
-fn main_err() -> rack::Result<()> {
+fn main() -> rack::Result<()> {
     let opt = Opt::from_args();
 
     let config_file = opt.config.as_ref().map_or_else(
