@@ -7,10 +7,7 @@ use failure::err_msg;
 use serde_yaml;
 use std::{
     fs::File,
-    path::{
-        Path,
-        PathBuf,
-    },
+    path::{Path, PathBuf},
 };
 
 #[derive(Debug, Serialize, Deserialize)]

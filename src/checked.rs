@@ -1,10 +1,7 @@
 //! An extension to Command to allow checked runs.
 
-use std::process::{
-    Command,
-    Output,
-};
 use crate::{RackError, Result};
+use std::process::{Command, Output};
 
 pub trait CheckedExt {
     /// Run the given command, normalizing to the local Result type, and returning a local error if

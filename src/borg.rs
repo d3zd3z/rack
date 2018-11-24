@@ -1,22 +1,16 @@
 //! Borg backups
 
-use crate::Result;
 use crate::sync::MountedDir;
+use crate::Result;
 
+use crate::zfs::{find_mount, Filesystem};
 use std::{
     collections::HashSet,
     fs,
-    io::{
-        BufRead,
-        BufReader,
-    },
+    io::{BufRead, BufReader},
     path::Path,
-    process::{
-        Command,
-        Stdio,
-    },
+    process::{Command, Stdio},
 };
-use crate::zfs::{Filesystem, find_mount};
 
 pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
     let out = Command::new("borg")
@@ -34,11 +28,15 @@ pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
         present.insert(line);
     }
 
-    println!("Borg: {} snapshots to backup",
-             fs.snaps.iter().filter(|x| {
-                 let snapname = format!("{}{}", name, x);
-                 !present.contains(&snapname[..])
-             }).count());
+    println!(
+        "Borg: {} snapshots to backup",
+        fs.snaps
+            .iter()
+            .filter(|x| {
+                let snapname = format!("{}{}", name, x);
+                !present.contains(&snapname[..])
+            }).count()
+    );
 
     // Go through all of the snapshots, in order, and back up ones that are missing.
     for snap in &fs.snaps {

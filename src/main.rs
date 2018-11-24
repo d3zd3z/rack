@@ -1,14 +1,10 @@
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
 
 use rack;
 
 use chrono::Utc;
-use std::{
-    env,
-    path::Path,
-    process,
-};
+use std::{env, path::Path, process};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -125,9 +121,10 @@ fn main() {
 fn main_err() -> rack::Result<()> {
     let opt = Opt::from_args();
 
-    let config_file = opt.config.as_ref()
-        .map_or_else(|| rack::Config::get_default(),
-                     |c| Ok(Path::new(c).to_path_buf()))?;
+    let config_file = opt.config.as_ref().map_or_else(
+        || rack::Config::get_default(),
+        |c| Ok(Path::new(c).to_path_buf()),
+    )?;
 
     match opt.command {
         Command::SyncCmd { fs } => {
@@ -140,7 +137,12 @@ fn main_err() -> rack::Result<()> {
             let conf = rack::Config::load(&config_file)?;
             conf.snap.snapshot(Utc::now(), pretend)?;
         }
-        Command::CloneCmd { excludes, pretend, source, dest } => {
+        Command::CloneCmd {
+            excludes,
+            pretend,
+            source,
+            dest,
+        } => {
             let excl: Vec<_> = excludes.iter().map(|x| x.as_str()).collect();
             rack::clone(&source, &dest, !pretend, &excl)?;
         }

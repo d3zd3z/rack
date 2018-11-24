@@ -1,15 +1,11 @@
 //! Sync the root filesystem to a volume on ZFS.
 
-use std::{
-    fs,
-    path::Path,
-    process::Command,
-};
+use std::{fs, path::Path, process::Command};
 
 use crate::lvm::Lvm;
 use crate::Result;
-use crate::ROOT_BIND_DIR;
 use crate::HOME_BIND_DIR;
+use crate::ROOT_BIND_DIR;
 
 /// Sync the root filesystem to a volume on ZFS.
 ///
@@ -67,7 +63,11 @@ fn ensure_empty<P: AsRef<Path>>(name: P) -> Result<()> {
     }
 
     if let Some(entry) = fs::read_dir(name)?.next() {
-        return Err(format_err!("Root {:?} is not empty (has {:?})", name, entry?));
+        return Err(format_err!(
+            "Root {:?} is not empty (has {:?})",
+            name,
+            entry?
+        ));
     }
 
     Ok(())
@@ -96,7 +96,8 @@ impl<'a> Drop for MountedDir<'a> {
     fn drop(&mut self) {
         let status = Command::new("umount")
             .arg(self.0)
-            .status().expect("Umount command");
+            .status()
+            .expect("Umount command");
         if !status.success() {
             panic!("Error running unmount command");
         }

@@ -5,29 +5,24 @@
 
 // For development.
 #![allow(dead_code)]
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
 
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
-
-
-#[macro_use] extern crate failure;
-#[macro_use] extern crate failure_derive;
+#[macro_use]
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 use regex;
 use rsure;
 
+#[macro_use]
+extern crate serde_derive;
 
-#[macro_use] extern crate serde_derive;
-
-use chrono::{
-    DateTime, Utc
-};
+use chrono::{DateTime, Utc};
 use failure::err_msg;
 use regex::Regex;
 use std::{
-    collections::{
-        HashMap,
-        HashSet,
-    },
+    collections::{HashMap, HashSet},
     path::Path,
     process::ExitStatus,
     result,
@@ -35,21 +30,13 @@ use std::{
 
 // Reexports.
 pub use crate::config::{
-    CloneConfig,
-    CloneVolume,
-    Config,
-    ResticConfig,
-    ResticVolume,
-    SnapConfig,
-    SnapConvention,
-    SnapVolume,
-    SureConfig,
-    SureVolume,
+    CloneConfig, CloneVolume, Config, ResticConfig, ResticVolume, SnapConfig, SnapConvention,
+    SnapVolume, SureConfig, SureVolume,
 };
 
-mod config;
-mod checked;
 mod borg;
+mod checked;
+mod config;
 mod lvm;
 mod sync;
 mod zfs;
@@ -60,14 +47,9 @@ use crate::zfs::Zfs;
 #[derive(Fail, Debug)]
 enum RackError {
     #[fail(display = "error running command: {:?}: {}", status, command)]
-    Command {
-        command: String,
-        status: ExitStatus,
-    },
+    Command { command: String, status: ExitStatus },
     #[fail(display = "not mounted: {:?}", fs)]
-    NotMounted {
-        fs: String,
-    },
+    NotMounted { fs: String },
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -95,16 +77,19 @@ impl SnapConfig {
     /// Create time-based snapshots for all volumes mentioned in the config
     /// file.
     pub fn snapshot(&self, now: DateTime<Utc>, pretend: bool) -> Result<()> {
-        let convs: HashMap<&str, &SnapConvention> =
-            self.conventions.iter().map(|c| (c.name.as_str(), c)).collect();
+        let convs: HashMap<&str, &SnapConvention> = self
+            .conventions
+            .iter()
+            .map(|c| (c.name.as_str(), c))
+            .collect();
 
         // Look up all of the conventions before running any, in so that we
         // can report an error before creating any snapshots.
         let mut sn: Vec<(&SnapVolume, &SnapConvention)> = vec![];
         for v in &self.volumes {
-            let c = convs.get(v.convention.as_str())
-                .ok_or_else(|| format_err!("Invalid convention {:?} in snap {:?}",
-                                           v.convention, v.name))?;
+            let c = convs.get(v.convention.as_str()).ok_or_else(|| {
+                format_err!("Invalid convention {:?} in snap {:?}", v.convention, v.name)
+            })?;
             sn.push((v, *c));
         }
 
@@ -120,9 +105,13 @@ impl SnapConfig {
 
 impl SnapVolume {
     // Create a time-based snapshot.
-    pub fn snapshot(&self, conv: &SnapConvention, now: DateTime<Utc>,
-                    zfs: &Zfs, pretend: bool) -> Result<()>
-    {
+    pub fn snapshot(
+        &self,
+        conv: &SnapConvention,
+        now: DateTime<Utc>,
+        zfs: &Zfs,
+        pretend: bool,
+    ) -> Result<()> {
         let name = format!("{}-{}", conv.name, now.format("%Y%m%d%H%M"));
         println!("Snapshot of {:?}@{:?} at {}", self.zfs, name, now);
         if !pretend {
@@ -238,11 +227,8 @@ pub fn run_borg(filesystem: &str, borg_repo: &str, name: &str) -> Result<()> {
 /// A filesystem volume, which can be local or on a given host.
 #[derive(Eq, PartialEq, Debug)]
 pub enum FsName {
-    Local { name : String },
-    Remote {
-        host: String,
-        name: String,
-    },
+    Local { name: String },
+    Remote { host: String, name: String },
 }
 
 /// Parse a zfs filesystem name.  Possible configurations are just a volume
@@ -251,7 +237,7 @@ fn parse_fsname(text: &str) -> FsName {
     let fields: Vec<_> = text.splitn(2, ':').collect();
     match fields.len() {
         1 => FsName::Local {
-            name: text.to_owned()
+            name: text.to_owned(),
         },
         2 => FsName::Remote {
             host: fields[0].to_owned(),
@@ -263,16 +249,24 @@ fn parse_fsname(text: &str) -> FsName {
 
 #[test]
 fn test_parse_fsname() {
-    assert_eq!(parse_fsname("simple/name"),
-        FsName::Local { name: "simple/name".to_string() });
-    assert_eq!(parse_fsname("host:simple/name"),
+    assert_eq!(
+        parse_fsname("simple/name"),
+        FsName::Local {
+            name: "simple/name".to_string()
+        }
+    );
+    assert_eq!(
+        parse_fsname("host:simple/name"),
         FsName::Remote {
             host: "host".to_string(),
             name: "simple/name".to_string(),
-        });
-    assert_eq!(parse_fsname("host:simple/name:with-colon"),
+        }
+    );
+    assert_eq!(
+        parse_fsname("host:simple/name:with-colon"),
         FsName::Remote {
             host: "host".to_string(),
             name: "simple/name:with-colon".to_string(),
-        });
+        }
+    );
 }

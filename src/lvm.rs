@@ -2,22 +2,13 @@
 
 use chrono::{Datelike, Local};
 use std::{
-    collections::{
-        HashMap,
-        HashSet,
-    },
-    io::{
-        BufRead,
-        BufReader,
-    },
-    process::{
-        Command,
-        Stdio,
-    },
+    collections::{HashMap, HashSet},
+    io::{BufRead, BufReader},
+    process::{Command, Stdio},
 };
 
-use crate::Result;
 use crate::checked::CheckedExt;
+use crate::Result;
 
 #[derive(Debug)]
 pub struct Lvm {
@@ -30,8 +21,14 @@ impl Lvm {
     /// Scan the system for LVM partitions releated to the specified one.
     pub fn scan(vg: &str, lv: &str) -> Result<Lvm> {
         let out = Command::new("lvs")
-            .args(&["--nameprefixes", "--noheadings", "--all", "--units", "b", "--nosuffix"])
-            .stderr(Stdio::inherit())
+            .args(&[
+                "--nameprefixes",
+                "--noheadings",
+                "--all",
+                "--units",
+                "b",
+                "--nosuffix",
+            ]).stderr(Stdio::inherit())
             .checked_output()?;
         let buf = out.stdout;
 
@@ -49,8 +46,8 @@ impl Lvm {
                 continue;
             }
 
-            if fields.get("LVM2_LV_NAME").map(|x| x.as_str()) == Some(lv) &&
-                fields.get("LVM2_ORIGIN").map(|x| x.as_str()) == Some("")
+            if fields.get("LVM2_LV_NAME").map(|x| x.as_str()) == Some(lv)
+                && fields.get("LVM2_ORIGIN").map(|x| x.as_str()) == Some("")
             {
                 if main.is_some() {
                     panic!("Duplicate record for vg/lv");
@@ -66,9 +63,10 @@ impl Lvm {
         Ok(Lvm {
             vg: main.get("LVM2_VG_NAME").expect("vg_name field").clone(),
             lv: main.get("LVM2_LV_NAME").expect("lv_name field").clone(),
-            snaps: snaps.iter().map(|x| {
-                x.get("LVM2_LV_NAME").expect("lv_name in snapshot").clone()
-            }).collect()
+            snaps: snaps
+                .iter()
+                .map(|x| x.get("LVM2_LV_NAME").expect("lv_name in snapshot").clone())
+                .collect(),
         })
     }
 
@@ -78,8 +76,13 @@ impl Lvm {
         let all: HashSet<&str> = self.snaps.iter().map(|x| x.as_str()).collect();
 
         let now = Local::now();
-        let base = format!("{}-{:04}-{:02}-{:02}",
-                           self.lv, now.year(), now.month(), now.day());
+        let base = format!(
+            "{}-{:04}-{:02}-{:02}",
+            self.lv,
+            now.year(),
+            now.month(),
+            now.day()
+        );
 
         // The simple case of a unique name.
         if !all.contains(base.as_str()) {
@@ -179,9 +182,7 @@ impl SnapMount {
 
         let devname = format!("/dev/{}", me.lvm_name);
         // Run fsck.
-        Command::new("fsck")
-            .args(&["-p", &devname])
-            .checked_run()?;
+        Command::new("fsck").args(&["-p", &devname]).checked_run()?;
 
         // Mount the filesystem.
         Command::new("mount")

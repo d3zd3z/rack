@@ -1,30 +1,18 @@
 //! ZFS operations
 
-use chrono::{Datelike, Timelike, Local};
+use chrono::{Datelike, Local, Timelike};
 use failure::err_msg;
 use regex::{self, Regex};
 use std::{
-    collections::{
-        BTreeSet,
-        HashMap,
-    },
+    collections::{BTreeSet, HashMap},
     fs::File,
-    io::{
-        BufRead,
-        BufReader,
-    },
-    process::{
-        Command,
-        Stdio,
-    },
-    os::unix::io::{
-        AsRawFd,
-        FromRawFd,
-    },
+    io::{BufRead, BufReader},
+    os::unix::io::{AsRawFd, FromRawFd},
+    process::{Command, Stdio},
 };
 
-use crate::{RackError, Result};
 use crate::checked::CheckedExt;
+use crate::{RackError, Result};
 
 #[derive(Debug)]
 pub struct Zfs {
@@ -109,9 +97,9 @@ impl Zfs {
     /// Given a snapshot name, return the number of that snapshot, if it matches the pattern,
     /// otherwise None.
     fn snap_number(&self, text: &str) -> Option<usize> {
-        self.snap_re.captures(text).map(|caps| {
-            caps.get(1).unwrap().as_str().parse::<usize>().unwrap()
-        })
+        self.snap_re
+            .captures(text)
+            .map(|caps| caps.get(1).unwrap().as_str().parse::<usize>().unwrap())
     }
 
     /// Return the filtered subset of the filesystems under a given prefix.  Collected into a
@@ -119,16 +107,26 @@ impl Zfs {
     fn filtered<'a>(&'a self, under: &str) -> Result<Vec<&'a Filesystem>> {
         let re = Regex::new(&format!("^{}(/.*)?$", regex::escape(under)))?;
 
-        Ok(self.filesystems.iter().filter(|x| re.is_match(&x.name)).collect())
+        Ok(self
+            .filesystems
+            .iter()
+            .filter(|x| re.is_match(&x.name))
+            .collect())
     }
 
     /// Generate a snapshot name of the given index, and the current time.
     pub fn snap_name(&self, index: usize) -> String {
         let now = Local::now();
-        let name = format!("{}{:04}-{:04}{:02}{:02}{:02}{:02}",
-                           self.prefix, index,
-                           now.year(), now.month(), now.day(),
-                           now.hour(), now.minute());
+        let name = format!(
+            "{}{:04}-{:04}{:02}{:02}{:02}{:02}",
+            self.prefix,
+            index,
+            now.year(),
+            now.month(),
+            now.day(),
+            now.hour(),
+            now.minute()
+        );
         name
     }
 
@@ -167,7 +165,9 @@ impl Zfs {
         // that exactly matches `dest`.  This should be safe as long as `.filtered()` above
         // always returns ones with this string as a prefix.
         let dest_map: HashMap<&str, &Filesystem> = dest_fs
-            .iter().map(|&d| (&d.name[dest.len()..], d)).collect();
+            .iter()
+            .map(|&d| (&d.name[dest.len()..], d))
+            .collect();
 
         for src in &source_fs {
             if excludes.is_excluded(&src.name) {
@@ -183,8 +183,12 @@ impl Zfs {
                     }
                 }
                 None => {
-                    println!("Clone fresh: {:?} {:?}+{:?}",
-                             src.name, dest, &src.name[source.len()..]);
+                    println!(
+                        "Clone fresh: {:?} {:?}+{:?}",
+                        src.name,
+                        dest,
+                        &src.name[source.len()..]
+                    );
 
                     // Construct the new volume.
                     let destfs = Filesystem {
@@ -219,10 +223,13 @@ impl Zfs {
 
             if dsnap == ssnap {
                 println!("Destination is up to date");
-                return Ok(())
+                return Ok(());
             }
 
-            println!("Clone from {}@{} to {}@{}", source.name, ssnap, dest.name, dsnap);
+            println!(
+                "Clone from {}@{} to {}@{}",
+                source.name, ssnap, dest.name, dsnap
+            );
 
             let size = self.estimate_size(&source.name, Some(ssnap), dsnap)?;
             println!("Estimate: {}", humanize_size(size));
@@ -278,7 +285,10 @@ impl Zfs {
             let line = line?;
             let fields: Vec<_> = line.split('\t').collect();
             if fields.len() < 2 {
-                return Err(format_err!("Invalid line from zfs send size estimate: {:?}", line));
+                return Err(format_err!(
+                    "Invalid line from zfs send size estimate: {:?}",
+                    line
+                ));
             }
             if fields[0] != "size" {
                 continue;
@@ -291,7 +301,14 @@ impl Zfs {
     }
 
     /// Perform the actual clone.
-    fn do_clone(&self, source: &str, dest: &str, ssnap: Option<&str>, dsnap: &str, size: usize) -> Result<()> {
+    fn do_clone(
+        &self,
+        source: &str,
+        dest: &str,
+        ssnap: Option<&str>,
+        dsnap: &str,
+        size: usize,
+    ) -> Result<()> {
         // Construct a pipeline from zfs -> pv -> zfs.  PV is used to monitor the progress.
         let mut cmd = Command::new("zfs");
         cmd.arg("send");
@@ -311,7 +328,7 @@ impl Zfs {
         // safe.
         let mut pv = Command::new("pv")
             .args(&["-s", &size.to_string()])
-            .stdin(unsafe {Stdio::from_raw_fd(send_out)})
+            .stdin(unsafe { Stdio::from_raw_fd(send_out) })
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()?;
@@ -320,7 +337,7 @@ impl Zfs {
 
         let mut receiver = Command::new("zfs")
             .args(&["receive", "-vFu", dest])
-            .stdin(unsafe {Stdio::from_raw_fd(pv_out)})
+            .stdin(unsafe { Stdio::from_raw_fd(pv_out) })
             .stderr(Stdio::inherit())
             .spawn()?;
 
@@ -352,16 +369,17 @@ impl Zfs {
 
         // Get all of the snapshots, oldest first, that match this tag, and pair them up with
         // the decoded number.
-        let mut snaps: Vec<_> = fs.snaps.iter().filter_map(|sn| {
-            self.snap_number(sn).map(|num| (sn, num))
-        }).collect();
+        let mut snaps: Vec<_> = fs
+            .snaps
+            .iter()
+            .filter_map(|sn| self.snap_number(sn).map(|num| (sn, num)))
+            .collect();
         snaps.reverse();
 
         let mut pops = BTreeSet::<u32>::new();
         let mut to_prune = vec![];
 
         for item in snaps.iter().enumerate() {
-
             // Don't prune the most recent ones.
             let index = item.0;
             if index < PRUNE_KEEP {
@@ -376,7 +394,6 @@ impl Zfs {
                 let prune_name = format!("{}@{}", fs_name, name);
 
                 to_prune.push(prune_name);
-
             }
             pops.insert(bit_count);
         }
@@ -385,7 +402,11 @@ impl Zfs {
         to_prune.reverse();
 
         for prune_name in &to_prune {
-            println!("{}prune: {}", if really { "" } else { "would " }, prune_name);
+            println!(
+                "{}prune: {}",
+                if really { "" } else { "would " },
+                prune_name
+            );
             if really {
                 Command::new("zfs")
                     .arg("destroy")
@@ -412,7 +433,10 @@ impl Zfs {
             let line = line?;
             let fields: Vec<_> = line.split('\t').collect();
             if fields.len() != 4 {
-                return Err(format_err!("zfs get line doesn't have 4 fields: {:?}", line));
+                return Err(format_err!(
+                    "zfs get line doesn't have 4 fields: {:?}",
+                    line
+                ));
             }
             // 0 - name
             // 1 - property
@@ -459,10 +483,12 @@ pub fn find_mount(name: &str) -> Result<String> {
             continue;
         }
         if fields[0] == name {
-            return Ok(fields[1].to_owned())
+            return Ok(fields[1].to_owned());
         }
     }
-    return Err(RackError::NotMounted { fs: name.to_owned() }.into());
+    return Err(RackError::NotMounted {
+        fs: name.to_owned(),
+    }.into());
 }
 
 /// The number of recent ones to keep.
@@ -475,9 +501,7 @@ struct SnapBuilder {
 
 impl SnapBuilder {
     fn new() -> SnapBuilder {
-        SnapBuilder {
-            work: vec![],
-        }
+        SnapBuilder { work: vec![] }
     }
 
     fn into_sets(self) -> Vec<Filesystem> {
@@ -536,7 +560,8 @@ impl Exclusions {
 fn humanize_size(size: usize) -> String {
     // This unit table covers at least 80 bits, so the later ones will never be used.
     static UNITS: &'static [&'static str] = &[
-        "B  ", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB" ];
+        "B  ", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB",
+    ];
 
     let mut value = size as f64;
     let mut unit = 0;
