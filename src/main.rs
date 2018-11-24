@@ -104,6 +104,8 @@ enum Command {
 }
 
 fn main() -> rack::Result<()> {
+    rsure::log_init();
+
     let opt = Opt::from_args();
 
     let config_file = opt.config.as_ref().map_or_else(
