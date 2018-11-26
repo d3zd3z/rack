@@ -13,7 +13,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
+pub fn run(fs: &Filesystem, borg_repo: &str, name: &str, pretend: bool) -> Result<()> {
     let out = Command::new("borg")
         .args(&["list", "--short", borg_repo])
         .stderr(Stdio::inherit())
@@ -46,7 +46,12 @@ pub fn run(fs: &Filesystem, borg_repo: &str, name: &str) -> Result<()> {
             continue;
         }
 
-        fs.borg_backup(borg_repo, snap, name)?;
+        if pretend {
+            println!("borg create -p --exclude-caches {:?} {:?} {:?}",
+                     borg_repo, snap, name);
+        } else {
+            fs.borg_backup(borg_repo, snap, name)?;
+        }
     }
 
     Ok(())

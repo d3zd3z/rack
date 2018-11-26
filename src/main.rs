@@ -85,6 +85,10 @@ enum Command {
     #[structopt(name = "borg")]
     /// Generate borg backups
     Borg {
+        #[structopt(short = "n", long = "pretend")]
+        /// Don't actually do the backups, but show what would be done.
+        pretend: bool,
+
         #[structopt(long = "fs", default_value = "lint/ext4gentoo")]
         /// ZFS filesystem name
         fs: String,
@@ -140,8 +144,8 @@ fn main() -> rack::Result<()> {
             let conf = rack::Config::load(&config_file)?;
             conf.sure.run(pretend)?;
         }
-        Command::Borg { fs, repo, name } => {
-            rack::run_borg(&fs, &repo, &name)?;
+        Command::Borg { fs, repo, name, pretend } => {
+            rack::run_borg(&fs, &repo, &name, pretend)?;
         }
         Command::Hack => {
             let conf = rack::Config::load_default()?;

@@ -200,7 +200,7 @@ pub fn sure(prefix: &str, filesystem: &str, surefile: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn run_borg(filesystem: &str, borg_repo: &str, name: &str) -> Result<()> {
+pub fn run_borg(filesystem: &str, borg_repo: &str, name: &str, pretend: bool) -> Result<()> {
     let snap = Zfs::new(filesystem)?;
 
     let fs = if let Some(fs) = snap.filesystems.iter().find(|&fs| fs.name == filesystem) {
@@ -210,7 +210,7 @@ pub fn run_borg(filesystem: &str, borg_repo: &str, name: &str) -> Result<()> {
     };
 
     // Just get the snapshots matching this single prefix.
-    borg::run(fs, borg_repo, name).unwrap();
+    borg::run(fs, borg_repo, name, pretend).unwrap();
 
     Ok(())
 }
