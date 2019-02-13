@@ -125,6 +125,22 @@ impl SureConfig {
     }
 }
 
+impl CloneConfig {
+    pub fn run(&self, pretend: bool) -> Result<()> {
+        for vol in &self.volumes {
+            if vol.skip == Some(true) {
+                continue;
+            }
+            println!("Clone: {:?}", vol);
+
+            clone(&vol.source, &vol.dest, !pretend, &[])?;
+        }
+
+        Ok(())
+    }
+
+}
+
 /// Clone one volume to another.
 pub fn clone(source: &str, dest: &str, perform: bool, excludes: &[&str]) -> Result<()> {
     println!("Cloning {} to {}", source, dest);

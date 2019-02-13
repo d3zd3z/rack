@@ -45,9 +45,9 @@ enum Command {
         pretend: bool,
     },
 
-    #[structopt(name = "clone")]
-    /// Clone one volume tree to another
-    CloneCmd {
+    #[structopt(name = "cloneone")]
+    /// Clone one volume tree to another.  With explicit arguments
+    CloneOneCmd {
         #[structopt(short = "e", long = "exclude")]
         /// Tree(s) to exclude (source based)
         excludes: Vec<String>,
@@ -61,6 +61,14 @@ enum Command {
 
         /// Destination zfs filesystem
         dest: String,
+    },
+
+    #[structopt(name = "clone")]
+    /// Clone/sync any filesystems as described in the config file.
+    CloneCmd {
+        #[structopt(short = "n", long = "pretend")]
+        /// Don't actually do the work, just show what would be done
+        pretend: bool,
     },
 
     #[structopt(name = "prune")]
@@ -128,7 +136,7 @@ fn main() -> rack::Result<()> {
             let conf = rack::Config::load(&config_file)?;
             conf.snap.snapshot(Utc::now(), pretend)?;
         }
-        Command::CloneCmd {
+        Command::CloneOneCmd {
             excludes,
             pretend,
             source,
@@ -136,6 +144,10 @@ fn main() -> rack::Result<()> {
         } => {
             let excl: Vec<_> = excludes.iter().map(|x| x.as_str()).collect();
             rack::clone(&source, &dest, !pretend, &excl)?;
+        }
+        Command::CloneCmd { pretend } => {
+            let conf = rack::Config::load(&config_file)?;
+            conf.clone.run(pretend)?;
         }
         Command::Prune { really, dest } => {
             rack::prune(&opt.prefix, &dest, really)?;
