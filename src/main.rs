@@ -110,6 +110,18 @@ enum Command {
         name: String,
     },
 
+    #[structopt(name = "restic")]
+    /// Generate restic backups.
+    Restic {
+        #[structopt(short = "n", long = "pretend")]
+        /// Don't actually do the backups, but show what would be done.
+        pretend: bool,
+
+        #[structopt(long = "name")]
+        /// Volume from .gack.yaml to back up.
+        name: Option<String>,
+    },
+
     #[structopt(name = "hack")]
     /// Hacking work for new api.
     Hack,
@@ -158,6 +170,10 @@ fn main() -> rack::Result<()> {
         }
         Command::Borg { fs, repo, name, pretend } => {
             rack::run_borg(&fs, &repo, &name, pretend)?;
+        }
+        Command::Restic { name, pretend } => {
+            let conf = rack::Config::load(&config_file)?;
+            conf.run_restic(name.as_ref().map(|s| s.as_str()), pretend)?;
         }
         Command::Hack => {
             let conf = rack::Config::load_default()?;

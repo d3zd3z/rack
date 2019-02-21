@@ -29,6 +29,7 @@ mod borg;
 mod checked;
 mod config;
 mod lvm;
+mod restic;
 mod sync;
 mod zfs;
 
@@ -139,6 +140,30 @@ impl CloneConfig {
         Ok(())
     }
 
+}
+
+impl Config {
+    pub fn run_restic(&self, name: Option<&str>, pretend: bool) -> Result<()> {
+        let snaps = Zfs::new("none")?;
+
+        for vol in &self.restic.volumes {
+            match name {
+                None => (),
+                Some(given) if given == vol.name => (),
+                _ => continue,
+            }
+
+            // Find the filesystem in ZFS.
+            let fs = if let Some(fs) = snaps.filesystems.iter().find(|&fs| fs.name == vol.zfs) {
+                fs
+            } else {
+                return Err(err_msg("No snapshots match"));
+            };
+            vol.run(&fs, pretend)?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Clone one volume to another.
