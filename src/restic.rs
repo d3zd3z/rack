@@ -23,11 +23,11 @@ struct Snapshot {
     short_id: String,
     paths: Vec<String>,
     time: String,
-    parent: String,
+    parent: Option<String>,
     id: String,
     hostname: String,
     username: String,
-    tags: Vec<String>,
+    tags: Option<Vec<String>>,
 }
 
 pub struct Limiter(pub Option<usize>);
@@ -68,8 +68,10 @@ impl ResticVolume {
         let mut seen_tags = HashSet::new();
         for s in &snaps {
             if s.paths.iter().any(|p| p == &self.bind) {
-                for t in &s.tags {
-                    seen_tags.insert(t.to_owned());
+                if let Some(ref tags) = s.tags {
+                    for t in tags {
+                        seen_tags.insert(t.to_owned());
+                    }
                 }
             }
         }
