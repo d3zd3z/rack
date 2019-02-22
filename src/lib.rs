@@ -33,6 +33,7 @@ mod restic;
 mod sync;
 mod zfs;
 
+use crate::restic::Limiter;
 use crate::zfs::Zfs;
 
 /// Local error type.
@@ -143,7 +144,9 @@ impl CloneConfig {
 }
 
 impl Config {
-    pub fn run_restic(&self, name: Option<&str>, pretend: bool) -> Result<()> {
+    pub fn run_restic(&self, name: Option<&str>, limit: Option<usize>, pretend: bool) -> Result<()> {
+        let mut limit = Limiter(limit);
+
         let snaps = Zfs::new("none")?;
 
         for vol in &self.restic.volumes {
@@ -159,7 +162,7 @@ impl Config {
             } else {
                 return Err(err_msg("No snapshots match"));
             };
-            vol.run(&fs, pretend)?;
+            vol.run(&fs, &mut limit, pretend)?;
         }
 
         Ok(())

@@ -30,10 +30,25 @@ struct Snapshot {
     tags: Vec<String>,
 }
 
+pub struct Limiter(pub Option<usize>);
+
+impl Limiter {
+    fn exhausted(&mut self) -> bool {
+        match self.0 {
+            None => false,
+            Some(0) => true,
+            Some(ref mut n) => {
+                *n -= 1;
+                false
+            }
+        }
+    }
+}
+
 static RESTIC_BIN: &'static str = "/home/davidb/bin/restic";
 
 impl ResticVolume {
-    pub fn run(&self, fs: &Filesystem, pretend: bool) -> Result<()> {
+    pub fn run(&self, fs: &Filesystem, limit: &mut Limiter, pretend: bool) -> Result<()> {
         println!("Restic: {:?} {}", self, pretend);
 
         let out = Command::new(RESTIC_BIN)
@@ -68,7 +83,12 @@ impl ResticVolume {
                 continue;
             }
 
+            if limit.exhausted() {
+                break;
+            }
+
             println!("Restic dump {:?} snapshot {:?}", self.zfs, zsnap);
+
             if pretend {
                 continue;
             }

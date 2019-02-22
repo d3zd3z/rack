@@ -120,6 +120,10 @@ enum Command {
         #[structopt(long = "name")]
         /// Volume from .gack.yaml to back up.
         name: Option<String>,
+
+        #[structopt(long = "limit")]
+        /// Limit how many backups are made.
+        limit: Option<usize>,
     },
 
     #[structopt(name = "hack")]
@@ -171,9 +175,9 @@ fn main() -> rack::Result<()> {
         Command::Borg { fs, repo, name, pretend } => {
             rack::run_borg(&fs, &repo, &name, pretend)?;
         }
-        Command::Restic { name, pretend } => {
+        Command::Restic { name, pretend, limit } => {
             let conf = rack::Config::load(&config_file)?;
-            conf.run_restic(name.as_ref().map(|s| s.as_str()), pretend)?;
+            conf.run_restic(name.as_ref().map(|s| s.as_str()), limit, pretend)?;
         }
         Command::Hack => {
             let conf = rack::Config::load_default()?;
