@@ -80,7 +80,7 @@ pub struct ResticVolume {
     pub zfs: String,
     pub bind: String,
     pub repo: String,
-    pub passwordfile: String,
+    pub auth: Vec<String>,
 }
 
 impl Config {

@@ -51,10 +51,11 @@ impl ResticVolume {
     pub fn run(&self, fs: &Filesystem, limit: &mut Limiter, pretend: bool) -> Result<()> {
         println!("Restic: {:?} {}", self, pretend);
 
-        let out = Command::new(RESTIC_BIN)
-            .args(&["-r", &self.repo, "-p", &self.passwordfile, "snapshots", "--json"])
-            .stderr(Stdio::inherit())
-            .output()?;
+        let mut cmd = Command::new(RESTIC_BIN);
+        cmd.args(&["-r", &self.repo, "snapshots", "--json"]);
+        cmd.stderr(Stdio::inherit());
+        self.add_auth(&mut cmd)?;
+        let out = cmd.output()?;
         if !out.status.success() {
             return Err(format_err!("Unable to run restic: {:?}", out.status));
         }
@@ -100,6 +101,18 @@ impl ResticVolume {
 
         Ok(())
     }
+
+    fn add_auth(&self, cmd: &mut Command) -> Result<()> {
+        for au in &self.auth {
+            let fields: Vec<_> = au.splitn(2, "=").collect();
+            if fields.len() != 2 {
+                return Err(format_err!("auth in config file is not KEY=value"));
+            }
+            cmd.env(fields[0], fields[1]);
+        }
+
+        Ok(())
+    }
 }
 
 impl Filesystem {
@@ -120,13 +133,14 @@ impl Filesystem {
         let _root = MountedDir::new(&dest, Path::new(&rvol.bind))?;
 
         // Run the actual restic command.
-        let status = Command::new(RESTIC_BIN)
-            .args(&["-r", &rvol.repo, "-p", &rvol.passwordfile,
-                  "backup", "--exclude-caches",
-                  "--tag", snap,
-                  "--time", &fix_time(snap),
-                  &rvol.bind])
-            .status()?;
+        let mut cmd = Command::new(RESTIC_BIN);
+        cmd.args(&["-r", &rvol.repo,
+                 "backup", "--exclude-caches",
+                 "--tag", snap,
+                 "--time", &fix_time(snap),
+                 &rvol.bind]);
+        rvol.add_auth(&mut cmd)?;
+        let status = cmd.status()?;
 
         if !status.success() {
             return Err(format_err!("Unable to run restic: {:?}", status));
