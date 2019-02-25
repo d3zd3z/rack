@@ -176,6 +176,11 @@ impl Zfs {
                 continue;
             }
 
+            // Don't clone bookmarks.
+            if src.name.contains('#') {
+                continue;
+            }
+
             match dest_map.get(&src.name[source.len()..]) {
                 Some(d) => {
                     println!("Clone existing: {:?} to {:?}", src.name, d.name);
