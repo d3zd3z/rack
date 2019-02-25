@@ -3,10 +3,11 @@
 use chrono::{Datelike, Local, Timelike};
 use failure::{err_msg, format_err};
 use regex::{self, Regex};
+use serde_derive::Serialize;
 use std::{
     collections::{BTreeSet, HashMap},
     fs::File,
-    io::{BufRead, BufReader},
+    io::{self, BufRead, BufReader},
     os::unix::io::{AsRawFd, FromRawFd},
     process::{Command, Stdio},
 };
@@ -25,7 +26,7 @@ pub struct Zfs {
     snap_re: Regex,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Filesystem {
     pub name: String,
     pub snaps: Vec<String>,
@@ -178,8 +179,14 @@ impl Zfs {
             match dest_map.get(&src.name[source.len()..]) {
                 Some(d) => {
                     println!("Clone existing: {:?} to {:?}", src.name, d.name);
-                    if perform {
-                        self.clone_one(src, d)?;
+                    self.clone_one(src, d, perform)?;
+                    if !perform {
+                        println!("Clone from:");
+                        serde_yaml::to_writer(io::stdout().lock(), src)?;
+                        println!("");
+                        println!("Clone to:");
+                        serde_yaml::to_writer(io::stdout().lock(), d)?;
+                        println!("");
                     }
                 }
                 None => {
@@ -199,7 +206,15 @@ impl Zfs {
 
                     if perform {
                         self.make_volume(src, &destfs)?;
-                        self.clone_one(src, &destfs)?;
+                    }
+                    self.clone_one(src, &destfs, perform)?;
+                    if !perform {
+                        println!("Clone from:");
+                        serde_yaml::to_writer(io::stdout().lock(), src)?;
+                        println!("");
+                        println!("Clone to:");
+                        serde_yaml::to_writer(io::stdout().lock(), &destfs)?;
+                        println!("");
                     }
                 }
             }
@@ -210,7 +225,7 @@ impl Zfs {
 
     /// Clone a single filesystem to an existing volume.  We assume there are no snapshots on the
     /// destination that aren't on the source (otherwise it isn't possible to do the clone).
-    fn clone_one(&self, source: &Filesystem, dest: &Filesystem) -> Result<()> {
+    fn clone_one(&self, source: &Filesystem, dest: &Filesystem, perform: bool) -> Result<()> {
         if let Some(ssnap) = dest.snaps.last() {
             if !source.snaps.contains(ssnap) {
                 return Err(err_msg("Last dest snapshot not present in source"));
@@ -234,7 +249,9 @@ impl Zfs {
             let size = self.estimate_size(&source.name, Some(ssnap), dsnap)?;
             println!("Estimate: {}", humanize_size(size));
 
-            self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
+            if perform {
+                self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
+            }
 
             Ok(())
         } else {
@@ -259,7 +276,9 @@ impl Zfs {
             // If there are more snapshots to make, clone the rest.
             if ssnap != dsnap {
                 let size = self.estimate_size(&source.name, Some(ssnap), dsnap)?;
-                self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
+                if perform {
+                    self.do_clone(&source.name, &dest.name, Some(ssnap), dsnap, size)?;
+                }
             }
 
             Ok(())
