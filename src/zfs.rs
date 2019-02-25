@@ -360,7 +360,7 @@ impl Zfs {
         let pv_out = pv.stdout.as_ref().expect("PV output").as_raw_fd();
 
         let mut receiver = Command::new("zfs")
-            .args(&["receive", "-vFu", dest])
+            .args(&["receive", "-vF", "-x", "mountpoint", dest])
             .stdin(unsafe { Stdio::from_raw_fd(pv_out) })
             .stderr(Stdio::inherit())
             .spawn()?;
