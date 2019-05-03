@@ -1,12 +1,12 @@
 //! Backups using restic
 
 use crate::{
-    config::ResticVolume,
+    config::{Config, ResticConfig, ResticVolume},
     Result,
     sync::MountedDir,
-    zfs::{find_mount, Filesystem},
+    zfs::{find_mount, Filesystem, Zfs},
 };
-use failure::format_err;
+use failure::{err_msg, format_err};
 use regex::Regex;
 use serde_derive::{Deserialize};
 use std::{
@@ -51,17 +51,7 @@ impl ResticVolume {
     pub fn run(&self, fs: &Filesystem, limit: &mut Limiter, pretend: bool) -> Result<()> {
         println!("Restic: {:?} {}", self, pretend);
 
-        let mut cmd = Command::new(RESTIC_BIN);
-        cmd.args(&["-r", &self.repo, "snapshots", "--json"]);
-        cmd.stderr(Stdio::inherit());
-        self.add_auth(&mut cmd)?;
-        let out = cmd.output()?;
-        if !out.status.success() {
-            return Err(format_err!("Unable to run restic: {:?}", out.status));
-        }
-        let buf = out.stdout;
-
-        let snaps: Vec<Snapshot> = serde_json::from_slice(&buf)?;
+        let snaps = self.get_snapshots()?;
 
         // For every snapshot, where the 'paths' contains the bind for the
         // filesystem we are concerned with, add the tags to the list of
@@ -112,6 +102,22 @@ impl ResticVolume {
         }
 
         Ok(())
+    }
+
+    /// Collect all of the snapshots contained within a particular restic
+    /// backup.
+    fn get_snapshots(&self) -> Result<Vec<Snapshot>> {
+        let mut cmd = Command::new(RESTIC_BIN);
+        cmd.args(&["-r", &self.repo, "snapshots", "--json"]);
+        cmd.stderr(Stdio::inherit());
+        self.add_auth(&mut cmd)?;
+        let out = cmd.output()?;
+        if !out.status.success() {
+            return Err(format_err!("Unable to run restic: {:?}", out.status));
+        }
+        let buf = out.stdout;
+
+        Ok(serde_json::from_slice(&buf)?)
     }
 }
 
@@ -165,4 +171,97 @@ fn fix_time(snap: &str) -> String {
         }
         None => "now".to_string()
     }
+}
+
+impl Config {
+    pub fn restic_prune(&self, really: bool) -> Result<()> {
+        // Collect all of the restic snapshots.
+        let rsnaps = self.restic.get_snaps()?;
+
+        let zfs = Zfs::new("none")?;
+
+        // Go through the snapshots themselves, pruning any that aren't
+        // present in the restic snapshots.
+        for vol in &self.snap.volumes {
+            // Find the restic bind directory this was backed up under.
+            let bind = self.restic.find_bind(&vol.zfs)?;
+            println!("{:?}: {:?}", bind, vol);
+
+            // Find the filesystem in ZFS.
+            let fs = if let Some(fs) = zfs.filesystems.iter().find(|&fs| fs.name == vol.zfs) {
+                fs
+            } else {
+                return Err(err_msg("No snapshots match"));
+            };
+
+            // Go through each snapshot in zfs, and if not present in a
+            // restic backup, prune it.
+            for snap in &fs.snaps {
+                if !rsnaps.contains(&ResticSnap {
+                    path: bind.clone(),
+                    tag: snap.to_owned()
+                }) {
+                    zfs.prune(&vol.zfs, snap, really)?;
+                } else {
+                    println!(" keep {:?}@{:?}", vol.zfs, snap);
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl ResticConfig {
+    fn get_snaps(&self) -> Result<HashSet<ResticSnap>> {
+        let mut rsnaps = HashSet::new();
+
+        for v in &self.volumes {
+            let snaps = v.get_snapshots()?;
+
+            // Collect all of the involved snapshots.  Collect them by path
+            // and tag.
+            for snap in &snaps {
+                for path in &snap.paths {
+                    for tag in &snap.tags {
+                        for tag in tag {
+                            rsnaps.insert(ResticSnap {
+                                path: path.to_owned(),
+                                tag: tag.to_owned(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        Ok(rsnaps)
+    }
+
+    // Find the bind point this zfs volume is backed up to.  Will raise an
+    // error if it is either not backed up, or if it has been backed up
+    // under multiple bindings.
+    fn find_bind(&self, zfs: &str) -> Result<String> {
+        let binds: Vec<_> = self.volumes.iter().filter(|v| v.zfs == zfs).collect();
+        match binds.len() {
+            1 => Ok(binds[0].bind.clone()),
+            0 => Err(format_err!("No restic backups found for zfs {:?}", zfs)),
+            _ => {
+                // Multiple backups are fine, as long as they all use the
+                // same binding.
+                let result = binds[0].bind.clone();
+                for b in &binds[1..] {
+                    if result != b.bind {
+                        return Err(format_err!("Restic backups for zfs {:?} have different bind", zfs));
+                    }
+                }
+                Ok(result)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+struct ResticSnap {
+    path: String,
+    tag: String,
 }

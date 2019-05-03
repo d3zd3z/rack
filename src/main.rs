@@ -10,8 +10,6 @@ use structopt::StructOpt;
 #[derive(StructOpt)]
 #[structopt(name = "rack", about = "Snapshot based backups")]
 struct Opt {
-    #[structopt(short = "p", long = "prefix", default_value = "caz")]
-    prefix: String,
     /// Override default config file.  Default ~/.gack.yaml.
     #[structopt(long = "config")]
     config: Option<String>,
@@ -77,9 +75,6 @@ enum Command {
         #[structopt(long = "really")]
         /// Actually do the prune
         really: bool,
-
-        /// Volume to prune
-        dest: String,
     },
 
     #[structopt(name = "sure")]
@@ -165,8 +160,9 @@ fn main() -> rack::Result<()> {
             let conf = rack::Config::load(&config_file)?;
             conf.clone.run(pretend)?;
         }
-        Command::Prune { really, dest } => {
-            rack::prune(&opt.prefix, &dest, really)?;
+        Command::Prune { really } => {
+            let conf = rack::Config::load(&config_file)?;
+            conf.restic_prune(really)?;
         }
         Command::Sure { pretend } => {
             let conf = rack::Config::load(&config_file)?;

@@ -384,7 +384,7 @@ impl Zfs {
     /// Prune old snapshots.  This is a Hanoi-type pruning model, where we keep the most recent
     /// snapshot that has the same number of bits set in it.  In addition, we keep a certain number
     /// `PRUNE_KEEP` of the most recent snapshots.
-    pub fn prune(&self, fs_name: &str, really: bool) -> Result<()> {
+    pub fn prune_hanoi(&self, fs_name: &str, really: bool) -> Result<()> {
         let fs = if let Some(fs) = self.filesystems.iter().find(|fs| fs.name == fs_name) {
             fs
         } else {
@@ -440,6 +440,34 @@ impl Zfs {
             }
         }
 
+        Ok(())
+    }
+
+    /// Prune a single snapshot (possibly, based on `really`).  This will
+    /// attempt to make a bookmark first.
+    pub fn prune(&self, vol: &str, snap: &str, really: bool) -> Result<()> {
+        if really {
+            // Try creating a bookmark.
+            println!("pruning: {:?}@{:?}", vol, snap);
+            let status = Command::new("zfs")
+                .arg("bookmark")
+                .arg(&format!("{}@{}", vol, snap))
+                .arg(&format!("{}#{}", vol, snap))
+                .stderr(Stdio::inherit())
+                .status()?;
+            if !status.success() {
+                println!("  error creating bookmark");
+            }
+
+            // destroy the snapshot
+            Command::new("zfs")
+                .arg("destroy")
+                .arg(&format!("{}@{}", vol, snap))
+                .stderr(Stdio::inherit())
+                .checked_run()?;
+        } else {
+            println!("would prune {:?}@{:?}", vol, snap);
+        }
         Ok(())
     }
 
